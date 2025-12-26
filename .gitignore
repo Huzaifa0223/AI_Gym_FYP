@@ -1,0 +1,15 @@
+# Python temporary files
+__pycache__/
+*.py[cod]
+
+# VS Code settings
+.vscode/
+
+# Large video files (Optional - keep repo light)
+videos/
+*.mp4
+*.avi
+
+# Virtual Environments (if you have one)
+env/
+venv/
