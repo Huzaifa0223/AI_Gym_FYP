@@ -5,6 +5,7 @@ Supports age-specific variations and form detection
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Dict, Tuple, Optional, List
+from collections import deque
 import numpy as np
 
 @dataclass
@@ -175,6 +176,8 @@ class BaseExercise(ABC):
         self.counter = 0
         self.stage = "down"
         self.model = None
+        # Temporal smoothing buffer to prevent flickering (5-frame window)
+        self.state_buffer = deque(maxlen=5)
         self.load_model()
     
     @abstractmethod
@@ -201,6 +204,48 @@ class BaseExercise(ABC):
     def detect_rep(self, landmarks, angles: Dict[str, float]) -> bool:
         """Detect if a valid rep has been completed"""
         pass
+    
+    def get_smoothed_state(self, detected_state: str) -> str:
+        """
+        Apply temporal smoothing using majority voting to prevent flickering.
+        
+        Args:
+            detected_state: The state detected in the current frame ('UP', 'DOWN', etc.)
+        
+        Returns:
+            final_state: The smoothed state based on majority vote from last 5 frames
+        """
+        # Add current state to buffer
+        self.state_buffer.append(detected_state)
+        
+        # Count occurrences of each state
+        state_counts = {}
+        for state in self.state_buffer:
+            state_counts[state] = state_counts.get(state, 0) + 1
+        
+        # Return the state with highest frequency (majority vote)
+        final_state = max(state_counts, key=state_counts.get)
+        
+        return final_state
+    
+    def update_state_with_smoothing(self, detected_state: str) -> bool:
+        """
+        Update internal stage with temporal smoothing.
+        Only changes state if the smoothed state differs from current state.
+        
+        Args:
+            detected_state: The state detected in the current frame
+        
+        Returns:
+            state_changed: True if stage was updated, False otherwise
+        """
+        smoothed_state = self.get_smoothed_state(detected_state)
+        
+        if smoothed_state != self.stage:
+            self.stage = smoothed_state
+            return True
+        
+        return False
     
     def process_frame(self, landmarks) -> ExerciseResult:
         """
@@ -253,6 +298,7 @@ class BaseExercise(ABC):
         """Reset exercise counter and state"""
         self.counter = 0
         self.stage = "down"
+        self.state_buffer.clear()  # Clear temporal smoothing buffer on reset
 
 def get_exercise_config(exercise_type: str, age: int) -> ExerciseConfig:
     """
