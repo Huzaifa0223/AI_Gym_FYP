@@ -1,7 +1,9 @@
 """
 Video Processing Pipeline for Training Data Generation
-Processes videos to extract pose data for ML training
-Supports batch processing for multiple exercises and age groups
+Industrial-Grade Implementation with Data Augmentation
+- Folder-based automatic labeling (good_form=1, bad_form=0)
+- Mirroring augmentation (left/right hand detection)
+- Automatic age_group and exercise extraction from paths
 """
 # -*- coding: utf-8 -*-
 import cv2
@@ -11,18 +13,19 @@ import numpy as np
 import os
 import json
 from pathlib import Path
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Optional
 from datetime import datetime
+import argparse
 
 class VideoProcessor:
-    """Process exercise videos to extract training data"""
+    """Process exercise videos to extract training data with augmentation"""
     
     def __init__(self, output_dir='data/training'):
         self.output_dir = output_dir
         os.makedirs(output_dir, exist_ok=True)
         
         # Initialize MediaPipe Pose
-        self.mp_pose = mp.solutions.pose  # type: ignore
+        self.mp_pose = mp.solutions.pose
         self.pose = self.mp_pose.Pose(
             static_image_mode=False,
             model_complexity=2,
@@ -30,17 +33,94 @@ class VideoProcessor:
             min_tracking_confidence=0.5
         )
         
-        self.mp_draw = mp.solutions.drawing_utils  # type: ignore
+        self.mp_draw = mp.solutions.drawing_utils
         
-    def extract_landmarks_from_video(self, video_path: str) -> List[Dict]:
+        # Valid exercises and age groups
+        self.valid_exercises = ['bicep', 'back', 'chest']
+        self.valid_age_groups = ['children', 'adult', 'senior']
+        self.label_mapping = {
+            'good_form': 1,
+            'bad_form': 0
+        }
+    
+    def extract_metadata_from_path(self, video_path: str) -> Optional[Dict]:
         """
-        Extract pose landmarks from a video file
+        Extract exercise_type, age_group, and label from folder structure
+        Expected: videos/{exercise}/{age_group}/{form_type}/video.mp4
+        
+        Args:
+            video_path: Full path to video file
+            
+        Returns:
+            Dict with exercise_type, age_group, label, or None if invalid
+        """
+        try:
+            parts = Path(video_path).parts
+            # Find 'videos' index
+            if 'videos' not in parts:
+                return None
+            
+            videos_idx = parts.index('videos')
+            
+            # Extract: videos/[exercise]/[age_group]/[form_type]/[video_name]
+            if videos_idx + 3 >= len(parts):
+                return None
+            
+            exercise = parts[videos_idx + 1].lower()
+            age_group = parts[videos_idx + 2].lower()
+            form_type = parts[videos_idx + 3].lower()
+            
+            # Validate
+            if exercise not in self.valid_exercises:
+                return None
+            if age_group not in self.valid_age_groups:
+                return None
+            if form_type not in self.label_mapping:
+                return None
+            
+            return {
+                'exercise_type': exercise,
+                'age_group': age_group,
+                'label': self.label_mapping[form_type],
+                'form_type': form_type
+            }
+        except Exception as e:
+            print(f"[WARNING] Could not extract metadata from {video_path}: {e}")
+            return None
+    
+    def mirror_landmarks(self, landmarks: Dict) -> Dict:
+        """
+        Create mirrored version of landmarks (flip X-coordinates)
+        Converts right-hand to left-hand or vice versa
+        
+        Args:
+            landmarks: Dictionary with landmark_N_x, landmark_N_y, etc.
+            
+        Returns:
+            New dictionary with mirrored X-coordinates
+        """
+        mirrored = {}
+        
+        for key, value in landmarks.items():
+            if '_x' in key:
+                # Flip X coordinate: x_new = 1 - x_old
+                mirrored[key] = 1.0 - float(value) if isinstance(value, (int, float)) else value
+            else:
+                # Keep Y, Z, visibility as-is
+                mirrored[key] = value
+        
+        return mirrored
+    
+    def extract_landmarks_from_video(self, video_path: str, metadata: Dict) -> List[Dict]:
+        """
+        Extract pose landmarks from a video file with augmentation
         
         Args:
             video_path: Path to video file
+            metadata: Dictionary with exercise_type, age_group, label
             
         Returns:
-            List of dictionaries containing frame data
+            List of dictionaries containing frame data (original + mirrored)
         """
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
@@ -50,7 +130,7 @@ class VideoProcessor:
         frame_data = []
         frame_count = 0
         
-        print(f"[INFO] Processing video: {os.path.basename(video_path)}")
+        print(f"    Processing: {os.path.basename(video_path)}")
         
         while cap.isOpened():
             ret, frame = cap.read()
@@ -72,22 +152,36 @@ class VideoProcessor:
                     landmarks[f'landmark_{idx}_z'] = landmark.z
                     landmarks[f'landmark_{idx}_visibility'] = landmark.visibility
                 
+                # Add metadata
                 landmarks['frame'] = frame_count
                 landmarks['video_path'] = video_path
+                landmarks['video_file'] = os.path.basename(video_path)
+                landmarks['exercise_type'] = metadata['exercise_type']
+                landmarks['age_group'] = metadata['age_group']
+                landmarks['label'] = metadata['label']
+                landmarks['form_type'] = metadata['form_type']
+                landmarks['augmentation'] = 'original'
+                
                 frame_data.append(landmarks)
+                
+                # ===== DATA AUGMENTATION: MIRRORING =====
+                mirrored = self.mirror_landmarks(landmarks.copy())
+                mirrored['augmentation'] = 'mirrored'
+                frame_data.append(mirrored)
+                # ==========================================
             
             frame_count += 1
             
             # Progress indicator
             if frame_count % 30 == 0:
-                print(f"  Processed {frame_count} frames...")
+                print(f"      Frame {frame_count}...", end='\r')
         
         cap.release()
-        print(f"[SUCCESS] Extracted {len(frame_data)} frames with pose data")
+        print(f"    ✓ Extracted {len(frame_data)} frames (with augmentation)")
         return frame_data
     
     def process_video_batch(self, video_dir: str, exercise_type: str, 
-                           age_group: str, label: str = 'unknown') -> str | None:
+                           age_group: str, form_type: str) -> Optional[str]:
         """
         Process all videos in a directory
         
@@ -95,38 +189,32 @@ class VideoProcessor:
             video_dir: Directory containing videos
             exercise_type: 'bicep', 'back', or 'chest'
             age_group: 'children', 'adult', or 'senior'
-            label: Label for the exercise (e.g., 'good_form', 'bad_form')
+            form_type: 'good_form' or 'bad_form'
             
         Returns:
-            Path to saved CSV file
+            Path to saved CSV file, or None if no videos found
         """
         video_files = list(Path(video_dir).glob('*.mp4')) + \
                      list(Path(video_dir).glob('*.avi')) + \
-                     list(Path(video_dir).glob('*.mov'))
+                     list(Path(video_dir).glob('*.mov')) + \
+                     list(Path(video_dir).glob('*.mkv'))
         
         if not video_files:
-            print(f"[WARNING] No videos found in {video_dir}")
             return None
         
-        print(f"\n[INFO] Processing {len(video_files)} videos...")
-        print(f"  Exercise: {exercise_type}")
-        print(f"  Age Group: {age_group}")
-        print(f"  Label: {label}")
+        print(f"\n  Processing {len(video_files)} {form_type} videos...")
         
         all_data = []
         
         for i, video_path in enumerate(video_files, 1):
-            print(f"\n[{i}/{len(video_files)}] Processing: {video_path.name}")
+            metadata = {
+                'exercise_type': exercise_type,
+                'age_group': age_group,
+                'label': self.label_mapping[form_type],
+                'form_type': form_type
+            }
             
-            frame_data = self.extract_landmarks_from_video(str(video_path))
-            
-            # Add metadata to each frame
-            for data in frame_data:
-                data['exercise_type'] = exercise_type
-                data['age_group'] = age_group
-                data['label'] = label
-                data['video_file'] = video_path.name
-            
+            frame_data = self.extract_landmarks_from_video(str(video_path), metadata)
             all_data.extend(frame_data)
         
         # Save to CSV
@@ -134,50 +222,82 @@ class VideoProcessor:
             df = pd.DataFrame(all_data)
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             output_file = os.path.join(
-                self.output_dir, 
-                f'{exercise_type}_{age_group}_{label}_{timestamp}.csv'
+                self.output_dir,
+                f'{exercise_type}_{age_group}_{form_type}_{timestamp}.csv'
             )
             df.to_csv(output_file, index=False)
-            print(f"\n[SUCCESS] Saved training data: {output_file}")
-            print(f"  Total frames: {len(df)}")
-            print(f"  Features: {len(df.columns)}")
+            
+            print(f"\n  ✅ Saved: {output_file}")
+            print(f"     Total frames (with augmentation): {len(df)}")
+            print(f"     Age groups: {df['age_group'].unique().tolist()}")
+            print(f"     Labels: {df['label'].unique().tolist()}")
             return output_file
         
         return None
     
-    def create_training_config(self, exercise_type: str, age_group: str,
-                              good_form_videos: str, bad_form_videos: str | None = None) -> Dict:
+    def process_exercise_with_auto_labeling(self, base_path: str = 'videos') -> Dict[str, List[str]]:
         """
-        Create configuration for training pipeline
+        Auto-discover and process all videos using folder structure for labeling
+        Expected: videos/{exercise}/{age_group}/{form_type}/video.mp4
         
         Args:
-            exercise_type: 'bicep', 'back', or 'chest'
-            age_group: 'children', 'adult', or 'senior'
-            good_form_videos: Directory with good form videos
-            bad_form_videos: Directory with bad form videos (optional)
+            base_path: Base videos directory
             
         Returns:
-            Configuration dictionary
+            Dictionary with results: {exercise: [csv_files]}
         """
-        config = {
-            'exercise_type': exercise_type,
-            'age_group': age_group,
-            'timestamp': datetime.now().isoformat(),
-            'good_form_videos': good_form_videos,
-            'bad_form_videos': bad_form_videos,
-            'model_output': f'data/models/{exercise_type}_{age_group}.pkl'
-        }
+        results = {}
         
-        # Save config
-        config_file = os.path.join(
-            self.output_dir,
-            f'config_{exercise_type}_{age_group}.json'
-        )
-        with open(config_file, 'w') as f:
-            json.dump(config, f, indent=2)
+        videos_root = Path(base_path)
+        if not videos_root.exists():
+            print(f"[ERROR] Videos directory not found: {base_path}")
+            return results
         
-        print(f"[INFO] Training config saved: {config_file}")
-        return config
+        # Find all exercise directories
+        for exercise_dir in videos_root.iterdir():
+            if not exercise_dir.is_dir():
+                continue
+            
+            exercise_name = exercise_dir.name.lower()
+            if exercise_name not in self.valid_exercises:
+                continue
+            
+            results[exercise_name] = []
+            
+            print(f"\n{'='*60}")
+            print(f"EXERCISE: {exercise_name.upper()}")
+            print(f"{'='*60}")
+            
+            # Find all age group directories
+            for age_dir in exercise_dir.iterdir():
+                if not age_dir.is_dir():
+                    continue
+                
+                age_group = age_dir.name.lower()
+                if age_group not in self.valid_age_groups:
+                    continue
+                
+                print(f"\nAge Group: {age_group}")
+                
+                # Process good_form
+                good_form_dir = age_dir / 'good_form'
+                if good_form_dir.exists():
+                    csv_file = self.process_video_batch(
+                        str(good_form_dir), exercise_name, age_group, 'good_form'
+                    )
+                    if csv_file:
+                        results[exercise_name].append(csv_file)
+                
+                # Process bad_form
+                bad_form_dir = age_dir / 'bad_form'
+                if bad_form_dir.exists():
+                    csv_file = self.process_video_batch(
+                        str(bad_form_dir), exercise_name, age_group, 'bad_form'
+                    )
+                    if csv_file:
+                        results[exercise_name].append(csv_file)
+        
+        return results
     
     def __del__(self):
         """Cleanup"""
@@ -185,64 +305,47 @@ class VideoProcessor:
             self.pose.close()
 
 
-def process_all_exercises():
-    """
-    Example batch processing script
-    Organize your videos like:
+def main():
+    parser = argparse.ArgumentParser(description='Process exercise videos for training')
+    parser.add_argument('--exercise', choices=['bicep', 'back', 'chest'],
+                       help='Process specific exercise only')
+    parser.add_argument('--age', choices=['children', 'adult', 'senior'],
+                       help='Process specific age group only')
+    parser.add_argument('--base-path', default='videos',
+                       help='Base path for videos directory')
     
-    videos/
-        bicep/
-            children/
-                good_form/
-                bad_form/
-            adult/
-                good_form/
-                bad_form/
-            senior/
-                good_form/
-                bad_form/
-        back/
-            [same structure]
-        chest/
-            [same structure]
-    """
+    args = parser.parse_args()
+    
     processor = VideoProcessor()
     
-    exercises = ['bicep', 'back', 'chest']
-    age_groups = ['children', 'adult', 'senior']
+    print("\n" + "="*60)
+    print("AI GYM - VIDEO PROCESSING PIPELINE")
+    print("Industrial Grade with Data Augmentation")
+    print("="*60)
     
-    for exercise in exercises:
-        for age_group in age_groups:
-            print(f"\n{'='*60}")
-            print(f"Processing: {exercise.upper()} - {age_group.upper()}")
-            print(f"{'='*60}")
-            
-            # Process good form videos
-            good_dir = f'videos/{exercise}/{age_group}/good_form'
-            if os.path.exists(good_dir):
-                processor.process_video_batch(
-                    good_dir, exercise, age_group, 'good_form'
-                )
-            
-            # Process bad form videos
-            bad_dir = f'videos/{exercise}/{age_group}/bad_form'
-            if os.path.exists(bad_dir):
-                processor.process_video_batch(
-                    bad_dir, exercise, age_group, 'bad_form'
-                )
-    
-    print("\n[COMPLETE] All videos processed!")
+    if args.exercise and args.age:
+        # Process specific exercise/age combination
+        print(f"\nProcessing: {args.exercise.upper()} - {args.age.upper()}")
+        
+        good_form_dir = f"{args.base_path}/{args.exercise}/{args.age}/good_form"
+        bad_form_dir = f"{args.base_path}/{args.exercise}/{args.age}/bad_form"
+        
+        if Path(good_form_dir).exists():
+            processor.process_video_batch(good_form_dir, args.exercise, args.age, 'good_form')
+        if Path(bad_form_dir).exists():
+            processor.process_video_batch(bad_form_dir, args.exercise, args.age, 'bad_form')
+    else:
+        # Process all exercises
+        results = processor.process_exercise_with_auto_labeling(args.base_path)
+        
+        print(f"\n\n{'='*60}")
+        print("PROCESSING COMPLETE!")
+        print(f"{'='*60}")
+        for exercise, csv_files in results.items():
+            print(f"\n{exercise.upper()}: {len(csv_files)} CSV files")
+            for csv_file in csv_files:
+                print(f"  ✓ {csv_file}")
 
 
 if __name__ == '__main__':
-    # Example usage
-    processor = VideoProcessor()
-    
-    # Process current bicep videos
-    print("Processing existing bicep curl videos...")
-    processor.process_video_batch(
-        video_dir='videos',
-        exercise_type='bicep',
-        age_group='adult',  # Assuming current videos are adults
-        label='good_form'
-    )
+    main()

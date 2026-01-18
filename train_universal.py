@@ -1,18 +1,22 @@
 """
 Universal Training Script for All Exercises
-Trains ML models for bicep, back, and chest exercises
-Supports age-specific variations
+Industrial-Grade Implementation with Data Augmentation
+- Noise injection for robustness
+- Age-group specific training
+- Automatic CSV discovery
 """
 import pandas as pd
 import numpy as np
 import pickle
 import os
+import argparse
 from sklearn.cluster import KMeans
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report, accuracy_score
+from sklearn.metrics import classification_report, accuracy_score, confusion_matrix
 import matplotlib.pyplot as plt
 from pathlib import Path
+from typing import Optional
 
 class ExerciseModelTrainer:
     """Train ML models for exercise detection"""
@@ -80,6 +84,22 @@ class ExerciseModelTrainer:
         except:
             return 0.0
     
+    def inject_noise(self, X: np.ndarray, noise_std: float = 0.01) -> np.ndarray:
+        """
+        Inject Gaussian noise into training data for robustness
+        
+        Args:
+            X: Feature matrix
+            noise_std: Standard deviation of Gaussian noise (default 0.01)
+            
+        Returns:
+            Noisy feature matrix
+        """
+        noise = np.random.normal(0, noise_std, X.shape)
+        X_noisy = X + noise
+        print(f"[INFO] Noise injection: std={noise_std}, shape={X_noisy.shape}")
+        return X_noisy
+    
     def load_training_data(self, csv_path: str):
         """Load training data from CSV"""
         print(f"\n[INFO] Loading training data: {csv_path}")
@@ -89,6 +109,11 @@ class ExerciseModelTrainer:
         
         df = pd.read_csv(csv_path)
         print(f"  Loaded {len(df)} frames")
+        
+        # Filter by age_group if specified
+        if 'age_group' in df.columns:
+            df = df[df['age_group'] == self.age_group]
+            print(f"  Filtered to {len(df)} frames for age_group: {self.age_group}")
         
         # Calculate angles based on exercise type
         landmarks = self.landmark_configs[self.exercise_type]
@@ -181,44 +206,72 @@ class ExerciseModelTrainer:
         return self.model
     
     def train_supervised_model(self):
-        """Train supervised model if labels are available"""
+        """Train supervised model with noise injection"""
         if 'label' not in self.angle_data.columns:
             print("[WARNING] No labels found, cannot train supervised model")
             return None
         
-        print(f"\n[INFO] Training supervised model (Random Forest)...")
+        print(f"\n[INFO] Training supervised model (Random Forest with Noise Injection)...")
         
         # Features
         feature_cols = ['primary_angle', 'secondary_angle']
         X = self.angle_data[feature_cols].values
         y = self.angle_data['label'].values
         
+        print(f"  Original dataset size: {len(X)}")
+        print(f"  Class distribution: {np.bincount(y.astype(int))}")
+        
+        # ===== DATA AUGMENTATION: NOISE INJECTION =====
+        X_noisy = self.inject_noise(X, noise_std=0.01)
+        # Combine original and noisy data
+        X_combined = np.vstack([X, X_noisy])
+        y_combined = np.hstack([y, y])
+        print(f"  After noise augmentation: {len(X_combined)} samples")
+        # ===============================================
+        
         # Split data
         X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, random_state=42
+            X_combined, y_combined, test_size=0.2, random_state=42
         )
         
         # Train Random Forest
-        rf = RandomForestClassifier(n_estimators=100, random_state=42)
+        rf = RandomForestClassifier(
+            n_estimators=200,
+            max_depth=15,
+            min_samples_split=5,
+            random_state=42,
+            n_jobs=-1
+        )
         rf.fit(X_train, y_train)
         
         # Evaluate
         y_pred = rf.predict(X_test)
         accuracy = accuracy_score(y_test, y_pred)
         
-        print(f"  Accuracy: {accuracy:.2%}")
-        print("\n  Classification Report:")
+        print(f"\n  Accuracy: {accuracy:.2%}")
+        print(f"\n  Classification Report:")
         print(classification_report(y_test, y_pred))
+        
+        # Confusion Matrix
+        cm = confusion_matrix(y_test, y_pred)
+        print(f"\n  Confusion Matrix:")
+        print(f"    True Negatives:  {cm[0,0]}")
+        print(f"    False Positives: {cm[0,1]}")
+        print(f"    False Negatives: {cm[1,0]}")
+        print(f"    True Positives:  {cm[1,1]}")
         
         self.model = {
             'type': 'supervised',
             'model': rf,
             'feature_cols': feature_cols,
             'exercise_type': self.exercise_type,
-            'age_group': self.age_group
+            'age_group': self.age_group,
+            'accuracy': accuracy,
+            'noise_injection': True
         }
+        self.rf_model = rf
         
-        print(f"[SUCCESS] Supervised model trained")
+        print(f"[SUCCESS] Supervised model trained with noise injection")
         return self.model
     
     def save_model(self, output_dir='data/models'):
@@ -334,21 +387,36 @@ def train_all_models():
 
 
 if __name__ == '__main__':
-    # Example: Train a specific model
-    import sys
+    parser = argparse.ArgumentParser(description='Train exercise models')
+    parser.add_argument('--exercise', choices=['bicep', 'back', 'chest'],
+                       help='Train specific exercise only')
+    parser.add_argument('--age', choices=['children', 'adult', 'senior'],
+                       help='Train specific age group only')
+    parser.add_argument('--csv', help='Path to CSV file (optional)')
     
-    if len(sys.argv) > 2:
-        exercise = sys.argv[1]
-        age_group = sys.argv[2]
-        csv_path = sys.argv[3] if len(sys.argv) > 3 else None
-        
+    args = parser.parse_args()
+    
+    if args.exercise and args.age:
+        # Train specific model
+        csv_path = args.csv
         if csv_path is None:
-            print("Usage: python train_universal.py <exercise> <age_group> <csv_path>")
-            sys.exit(1)
+            # Auto-find CSV
+            pattern = f'data/training/{args.exercise}_{args.age}_*.csv'
+            csv_files = list(Path('.').glob(pattern))
+            if csv_files:
+                csv_path = str(max(csv_files, key=os.path.getctime))
+            else:
+                print(f"[ERROR] No CSV found for {args.exercise} - {args.age}")
+                print(f"  Expected: data/training/{args.exercise}_{args.age}_*.csv")
+                exit(1)
         
-        trainer = ExerciseModelTrainer(exercise, age_group)
+        trainer = ExerciseModelTrainer(args.exercise, args.age)
         trainer.load_training_data(csv_path)
-        trainer.train_unsupervised_model()
+        
+        model = trainer.train_supervised_model()
+        if model is None:
+            model = trainer.train_unsupervised_model()
+        
         trainer.save_model()
         trainer.visualize_results()
     else:
