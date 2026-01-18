@@ -28,6 +28,11 @@ except ImportError:
     def check_form_torso_relative(a, b, c): 
         return FallbackAngleResult(angle=0.0, is_valid=False, confidence=0.0, additional_info={"error": "pose_utils not available"})
 
+try:
+    from train_advanced_model import AdvancedExerciseModel
+except ImportError:
+    AdvancedExerciseModel = None
+
 # ===========================================
 # DATA STRUCTURES
 # ===========================================
@@ -51,36 +56,36 @@ class ExerciseResult:
 # MAIN EXERCISE CLASS
 # ===========================================
 class BicepCurlExercise:
-    def __init__(self, model_path: str, strict_thresh: float = 35, user_profile: Optional[Dict] = None):
+    def __init__(self, model_path: str, strict_thresh: float = 35):
         self.strict_thresh = strict_thresh
         self.counter = 0
         self.stage = "down"
         self.feedback = "Ready"
-        
-        # History buffers for smoothing
-        self.rep_history = [] 
-        self.angle_history = deque(maxlen=5) 
-        self.form_history = deque(maxlen=10)
-        self.user_profile = user_profile or {}
-        
-        # Timing
+        self.rep_history = []
+        self.angle_history = deque(maxlen=5)
         self.rep_start_time = None
         self.rep_times = []
         
-        # Setup Logging
-        self.logger = self._setup_logging()
-        
-        # Load Model
-        self.model = self._load_model(model_path)
-        
-        # Calibration (Default values)
-        self.calibration_data = {
-            'min_angle': 60,   
-            'max_angle': 160, 
-            'resting_angle': 180
-        }
-        if 'calibration' in self.user_profile:
-            self.calibration_data.update(self.user_profile['calibration'])
+        # --- NEW MODEL LOADING LOGIC ---
+        self.model = None
+        try:
+            # 1. Try Advanced Model first
+            from train_advanced_model import AdvancedExerciseModel
+            adv_model = AdvancedExerciseModel()
+            if adv_model.load_model('advanced_bicep_model.pkl'):
+                self.model = adv_model.best_model
+                print("[INFO] Loaded ADVANCED Model")
+        except Exception as e:
+            print(f"[WARN] Advanced model skipped: {e}")
+
+        # 2. Fallback to Basic Model if Advanced failed
+        if self.model is None and os.path.exists(model_path):
+            with open(model_path, 'rb') as f:
+                self.model = pickle.load(f)
+            print("[INFO] Loaded BASIC Model")
+        # -------------------------------
+
+        self.calibration_data = {'min_angle': 60, 'max_angle': 160}
 
     def _setup_logging(self):
         logger = logging.getLogger('BicepCurlExercise')

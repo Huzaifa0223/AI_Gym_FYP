@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "E:\FYP 1\AI_Gym_FYP\process_custom_videos.py", line 271, in <module>
+    print(f"\n\U0001f3af Processing {exercise_name} only...")
+  File "C:\Users\Muhammad Huzaifa\AppData\Local\Python\pythoncore-3.11-64\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f3af' in position 2: character maps to <undefined>
+INFO: Created TensorFlow Lite XNNPACK delegate for CPU.

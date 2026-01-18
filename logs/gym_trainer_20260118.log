@@ -1,0 +1,29 @@
+2026-01-18 20:51:34,051 - INFO - ============================================================
+2026-01-18 20:51:34,052 - INFO - AI GYM TRAINER - PROFESSIONAL EDITION
+2026-01-18 20:51:34,056 - INFO - ============================================================
+2026-01-18 20:51:34,057 - INFO - Loading ML model...
+2026-01-18 20:52:11,440 - INFO - Initializing camera...
+2026-01-18 20:52:16,499 - INFO - Visual feedback system initialized
+2026-01-18 20:52:16,500 - INFO - Expert coach initialized
+2026-01-18 20:52:16,502 - INFO - Initialization complete
+2026-01-18 20:52:16,503 - INFO - Starting user calibration...
+2026-01-18 20:52:32,159 - INFO - Calibration complete. Min angle: 162.6°, Max angle: 176.7°
+2026-01-18 20:52:32,165 - INFO - Calibration data saved to user_calibration/user_default_20260118_205232.json
+2026-01-18 20:52:32,166 - INFO - Starting main loop...
+2026-01-18 20:53:04,469 - INFO - Interrupted by user
+2026-01-18 20:53:04,469 - INFO - Cleaning up resources...
+2026-01-18 20:53:04,578 - INFO - 
+            ========================================
+            SESSION SUMMARY
+            ========================================
+            Total Reps: 1
+            Average Form Score: 94.2%
+            Best Form Score: 94.2%
+            Average Rep Duration: 0.77s
+            Consistency: 63.4%
+            Session Duration: 32.4s
+            Reps per Minute: 1.9
+            Model Type: basic_1feature
+            ========================================
+            
+2026-01-18 20:53:04,580 - INFO - Cleanup complete
