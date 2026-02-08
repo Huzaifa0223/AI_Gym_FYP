@@ -6,6 +6,7 @@ import sys
 import numpy as np
 import pandas as pd
 from pathlib import Path
+from typing import Dict
 from video_pipeline import VideoProcessor
 import tempfile
 import os
@@ -158,23 +159,16 @@ def test_dataframe_augmentation():
     # Create sample data
     data = []
     for i in range(5):
-        frame = {
-            f'landmark_{j}_x': np.random.uniform(0, 1) for j in range(33)
-        }
-        frame.update({
-            f'landmark_{j}_y': np.random.uniform(0, 1) for j in range(33)
-        })
-        frame.update({
-            f'landmark_{j}_z': np.random.uniform(-0.5, 0.5) for j in range(33)
-        })
-        frame.update({
-            f'landmark_{j}_visibility': np.random.uniform(0.5, 1.0) for j in range(33)
-        })
-        frame.update({
-            'frame': i,
-            'label': i % 2,
-            'augmentation': 'original'
-        })
+        frame: Dict[str, float | int | str] = {}
+        for j in range(33):
+            frame[f'landmark_{j}_x'] = float(np.random.uniform(0, 1))
+            frame[f'landmark_{j}_y'] = float(np.random.uniform(0, 1))
+            frame[f'landmark_{j}_z'] = float(np.random.uniform(-0.5, 0.5))
+            frame[f'landmark_{j}_visibility'] = float(np.random.uniform(0.5, 1.0))
+
+        frame['frame'] = i
+        frame['label'] = i % 2
+        frame['augmentation'] = 'original'
         data.append(frame)
     
     print(f"  Original data: {len(data)} frames")

@@ -933,8 +933,8 @@ class AIGymTrainer:
             
             display_frame = frame.copy()
             
-            if results.pose_landmarks:
-                landmarks = results.pose_landmarks.landmark
+            if results.pose_landmarks:  # type: ignore
+                landmarks = results.pose_landmarks.landmark  # type: ignore
                 pose_analysis = self.pose_analyzer.analyze_pose(landmarks, "right")
                 
                 if pose_analysis:
@@ -1093,8 +1093,8 @@ class AIGymTrainer:
         display_frame = enhanced_frame.copy()
         analysis_results = {}
         
-        if results.pose_landmarks:
-            landmarks = results.pose_landmarks.landmark
+        if results.pose_landmarks:  # type: ignore
+            landmarks = results.pose_landmarks.landmark  # type: ignore
             
             # Analyze pose
             pose_analysis = self.pose_analyzer.analyze_pose(landmarks, "right")
@@ -1152,7 +1152,7 @@ class AIGymTrainer:
                     try:
                         mp_drawing.draw_landmarks(
                             display_frame,
-                            results.pose_landmarks,
+                            results.pose_landmarks,  # type: ignore
                             list(mp_pose_module.POSE_CONNECTIONS),
                             mp_drawing.DrawingSpec(
                                 color=(0, 255, 0),      # Green for joints

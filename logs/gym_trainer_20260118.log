@@ -27,3 +27,122 @@
             ========================================
             
 2026-01-18 20:53:04,580 - INFO - Cleanup complete
+2026-01-18 23:01:09,418 - INFO - ============================================================
+2026-01-18 23:01:09,418 - INFO - AI GYM TRAINER - PROFESSIONAL EDITION
+2026-01-18 23:01:09,419 - INFO - ============================================================
+2026-01-18 23:01:09,419 - INFO - Loading ML model...
+2026-01-18 23:01:11,902 - INFO - Initializing camera...
+2026-01-18 23:01:14,465 - INFO - Visual feedback system initialized
+2026-01-18 23:01:14,466 - INFO - Expert coach initialized
+2026-01-18 23:01:14,466 - INFO - Initialization complete
+2026-01-18 23:01:14,466 - INFO - Starting user calibration...
+2026-01-18 23:01:37,504 - INFO - Calibration complete. Min angle: 140.0°, Max angle: 177.9°
+2026-01-18 23:01:37,514 - INFO - Calibration data saved to user_calibration/user_default_20260118_230137.json
+2026-01-18 23:01:37,516 - INFO - Starting main loop...
+2026-01-18 23:02:57,710 - INFO - Starting user calibration...
+2026-01-18 23:03:31,295 - INFO - Interrupted by user
+2026-01-18 23:03:31,295 - INFO - Cleaning up resources...
+2026-01-18 23:03:31,359 - INFO - 
+            ========================================
+            SESSION SUMMARY
+            ========================================
+            Total Reps: 7
+            Average Form Score: 96.7%
+            Best Form Score: 99.1%
+            Average Rep Duration: 3.76s
+            Consistency: -54.9%
+            Session Duration: 113.8s
+            Reps per Minute: 3.7
+            Model Type: basic_1feature
+            ========================================
+            
+2026-01-18 23:03:31,360 - INFO - Cleanup complete
+2026-01-18 23:04:32,986 - INFO - ============================================================
+2026-01-18 23:04:32,987 - INFO - AI GYM TRAINER - PROFESSIONAL EDITION
+2026-01-18 23:04:32,987 - INFO - ============================================================
+2026-01-18 23:04:32,987 - INFO - Loading ML model...
+2026-01-18 23:04:34,684 - INFO - Initializing camera...
+2026-01-18 23:04:37,449 - INFO - Visual feedback system initialized
+2026-01-18 23:04:37,449 - INFO - Expert coach initialized
+2026-01-18 23:04:37,450 - INFO - Initialization complete
+2026-01-18 23:04:37,450 - INFO - Starting user calibration...
+2026-01-18 23:07:17,229 - INFO - Interrupted by user
+2026-01-18 23:07:17,230 - INFO - Cleaning up resources...
+2026-01-18 23:07:17,271 - INFO - Cleanup complete
+2026-01-18 23:08:06,932 - INFO - ============================================================
+2026-01-18 23:08:06,934 - INFO - AI GYM TRAINER - PROFESSIONAL EDITION
+2026-01-18 23:08:06,936 - INFO - ============================================================
+2026-01-18 23:08:06,937 - INFO - Loading ML model...
+2026-01-18 23:08:10,644 - INFO - Initializing camera...
+2026-01-18 23:08:14,944 - INFO - Visual feedback system initialized
+2026-01-18 23:08:14,944 - INFO - Expert coach initialized
+2026-01-18 23:08:14,945 - INFO - Initialization complete
+2026-01-18 23:08:14,945 - INFO - Starting user calibration...
+2026-01-18 23:10:00,177 - INFO - Interrupted by user
+2026-01-18 23:10:00,178 - INFO - Cleaning up resources...
+2026-01-18 23:10:00,230 - INFO - Cleanup complete
+2026-01-18 23:15:55,930 - INFO - ============================================================
+2026-01-18 23:15:55,930 - INFO - AI GYM TRAINER - PROFESSIONAL EDITION
+2026-01-18 23:15:55,931 - INFO - ============================================================
+2026-01-18 23:15:55,931 - INFO - Loading ML model...
+2026-01-18 23:15:58,330 - INFO - Initializing camera...
+2026-01-18 23:16:01,214 - INFO - Visual feedback system initialized
+2026-01-18 23:16:01,214 - INFO - Expert coach initialized
+2026-01-18 23:16:01,216 - INFO - Initialization complete
+2026-01-18 23:16:01,216 - INFO - Starting user calibration...
+2026-01-18 23:23:01,477 - INFO - Interrupted by user
+2026-01-18 23:23:01,503 - INFO - Cleaning up resources...
+2026-01-18 23:23:01,762 - INFO - Cleanup complete
+2026-01-18 23:23:09,739 - INFO - ============================================================
+2026-01-18 23:23:09,740 - INFO - AI GYM TRAINER - PROFESSIONAL EDITION
+2026-01-18 23:23:09,740 - INFO - ============================================================
+2026-01-18 23:23:09,741 - INFO - Loading ML model...
+2026-01-18 23:23:14,441 - INFO - Initializing camera...
+2026-01-18 23:23:17,348 - INFO - Visual feedback system initialized
+2026-01-18 23:23:17,348 - INFO - Expert coach initialized
+2026-01-18 23:23:17,349 - INFO - Initialization complete
+2026-01-18 23:23:17,349 - INFO - Starting user calibration...
+2026-01-18 23:23:34,197 - INFO - Interrupted by user
+2026-01-18 23:23:34,197 - INFO - Cleaning up resources...
+2026-01-18 23:23:34,248 - INFO - Cleanup complete
+2026-01-18 23:25:52,470 - INFO - ============================================================
+2026-01-18 23:25:52,471 - INFO - AI GYM TRAINER - PROFESSIONAL EDITION
+2026-01-18 23:25:52,471 - INFO - ============================================================
+2026-01-18 23:25:52,471 - INFO - Loading ML model...
+2026-01-18 23:25:54,904 - INFO - Initializing camera...
+2026-01-18 23:25:57,460 - INFO - Visual feedback system initialized
+2026-01-18 23:25:57,460 - INFO - Expert coach initialized
+2026-01-18 23:25:57,461 - INFO - Initialization complete
+2026-01-18 23:25:57,461 - INFO - Starting user calibration...
+2026-01-18 23:26:17,217 - INFO - Interrupted by user
+2026-01-18 23:26:17,218 - INFO - Cleaning up resources...
+2026-01-18 23:26:17,264 - INFO - Cleanup complete
+2026-01-18 23:31:13,664 - INFO - ============================================================
+2026-01-18 23:31:13,668 - INFO - AI GYM TRAINER - PROFESSIONAL EDITION
+2026-01-18 23:31:13,668 - INFO - ============================================================
+2026-01-18 23:31:13,669 - INFO - Loading ML model...
+2026-01-18 23:31:19,622 - INFO - Initializing camera...
+2026-01-18 23:31:23,026 - INFO - Visual feedback system initialized
+2026-01-18 23:31:23,027 - INFO - Expert coach initialized
+2026-01-18 23:31:23,028 - INFO - Initialization complete
+2026-01-18 23:31:23,028 - INFO - Starting user calibration...
+2026-01-18 23:31:30,065 - INFO - Calibration complete. Min angle: 150.5°, Max angle: 179.0°
+2026-01-18 23:31:30,072 - INFO - Calibration data saved to user_calibration/user_default_20260118_233130.json
+2026-01-18 23:31:30,072 - INFO - Starting main loop...
+2026-01-18 23:32:22,828 - INFO - Interrupted by user
+2026-01-18 23:32:22,829 - INFO - Cleaning up resources...
+2026-01-18 23:32:23,162 - INFO - 
+            ========================================
+            SESSION SUMMARY
+            ========================================
+            Total Reps: 0
+            Average Form Score: 0.0%
+            Best Form Score: 0.0%
+            Average Rep Duration: 0.54s
+            Consistency: 100.0%
+            Session Duration: 53.1s
+            Reps per Minute: 0.0
+            Model Type: basic_1feature
+            ========================================
+            
+2026-01-18 23:32:23,163 - INFO - Cleanup complete

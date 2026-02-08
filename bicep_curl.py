@@ -62,9 +62,12 @@ class BicepCurlExercise:
         self.stage = "down"
         self.feedback = "Ready"
         self.rep_history = []
-        self.angle_history = deque(maxlen=5)
+        self.angle_history: deque[float] = deque(maxlen=5)
         self.rep_start_time = None
         self.rep_times = []
+
+        # Logger for diagnostics and fallback visibility
+        self.logger = self._setup_logging()
         
         # --- NEW MODEL LOADING LOGIC ---
         self.model = None
@@ -164,7 +167,7 @@ class BicepCurlExercise:
 
         # Smoothing
         self.angle_history.append(raw_angle)
-        smoothed_angle = float(np.median(self.angle_history))
+        smoothed_angle = float(np.median(np.array(self.angle_history, dtype=float)))
 
         # 2. Form Analysis (Torso)
         torso_angle = 0.0
