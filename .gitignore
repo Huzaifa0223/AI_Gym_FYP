@@ -13,3 +13,21 @@ videos/
 # Virtual Environments (if you have one)
 env/
 venv/
+.venv/
+
+# Claude AI workspace — ignore runtime state, keep skills
+.claude/
+!.claude/skills/
+!.claude/skills/**
+
+# Claude credentials and sensitive config
+.claude/.credentials.json
+
+# Temporary Google Drive upload cache
+.tmp.driveupload/
+
+# Compiled/distributed Python
+*.egg-info/
+dist/
+build/
+*.egg
