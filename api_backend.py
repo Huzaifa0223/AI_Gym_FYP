@@ -3,7 +3,8 @@ FastAPI Backend for AI Gym - Production Ready
 Provides REST API endpoints for exercise detection and tracking
 Supports multiple exercises and age groups
 """
-from fastapi import FastAPI, File, UploadFile, HTTPException, Form
+from fastapi import FastAPI, File, UploadFile, HTTPException, Form, Request, status
+from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field, validator
@@ -25,10 +26,10 @@ import time
 from exercises.base_exercise import get_exercise_config, ExerciseResult
 from exercises.back_exercise import BackExercise
 from exercises.chest_exercise import ChestExercise
-from bicep_curl import BicepCurlExercise
+from exercises.bicep_curl import BicepCurlExercise
 
 # Import auto-detection
-from exercise_classifier import ExerciseClassifier, quick_detect_exercise
+from core.exercise_classifier import ExerciseClassifier, quick_detect_exercise
 
 # ===========================================
 # LOGGING CONFIGURATION
@@ -84,6 +85,10 @@ class ExerciseResponse(BaseModel):
     api_version: str = Field(default="2.1.0", description="API version")
     latency_ms: Optional[float] = Field(None, description="Processing latency in milliseconds")
     timestamp: str
+    landmarks: Optional[List[Dict[str, float]]] = Field(
+        None,
+        description="MediaPipe pose landmarks — list of 33 points, each with x, y, z (normalized 0-1) and visibility"
+    )
 
 class UserProfile(BaseModel):
     user_id: str
@@ -117,6 +122,25 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ── API Key authentication ────────────────────────────────────────────────────
+# Set the AI_GYM_API_KEY environment variable to enable auth.
+# If the variable is not set the API runs open (local dev / demo mode).
+_API_KEY = os.environ.get("AI_GYM_API_KEY", "")
+
+@app.middleware("http")
+async def _api_key_middleware(request: Request, call_next):
+    if _API_KEY:  # only enforce when a key has been configured
+        # Allow health/readiness endpoints without a key
+        if request.url.path not in ("/ready", "/docs", "/openapi.json", "/redoc"):
+            provided = request.headers.get("X-API-Key", "")
+            if provided != _API_KEY:
+                return Response(
+                    content='{"detail":"Invalid or missing API key"}',
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    media_type="application/json"
+                )
+    return await call_next(request)
 
 # ===========================================
 # GLOBAL STATE
@@ -269,8 +293,20 @@ async def process_frame(request: ExerciseRequest):
                 degraded=False,
                 session_id=session_id,
                 latency_ms=latency_ms,
-                timestamp=datetime.now().isoformat()
+                timestamp=datetime.now().isoformat(),
+                landmarks=None
             )
+
+        # Extract all 33 MediaPipe pose landmarks to send to the frontend
+        landmarks_data = [
+            {
+                "x": lm.x,
+                "y": lm.y,
+                "z": lm.z,
+                "visibility": lm.visibility,
+            }
+            for lm in results.pose_landmarks.landmark
+        ]
         
         # Auto-detect exercise if not provided or auto_detect is True
         exercise_type = request.exercise_type
@@ -337,7 +373,8 @@ async def process_frame(request: ExerciseRequest):
             degraded=degraded,
             session_id=session_id,
             latency_ms=latency_ms,
-            timestamp=datetime.now().isoformat()
+            timestamp=datetime.now().isoformat(),
+            landmarks=landmarks_data
         )
             
     except HTTPException:

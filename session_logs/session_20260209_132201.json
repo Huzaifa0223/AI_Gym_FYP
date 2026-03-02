@@ -1,0 +1,40 @@
+{
+  "session_id": "session_20260209_132201",
+  "user_id": "default",
+  "timestamp": "2026-02-09T13:22:01.387594",
+  "duration": 91.09073209762573,
+  "rep_stats": {
+    "total_reps": 11,
+    "avg_duration": 1.0510271016289205,
+    "std_duration": 0.6180832533947349,
+    "avg_form_score": 93.46525235609575,
+    "best_form_score": 97.01770544052124,
+    "worst_form_score": 87.5167727470398,
+    "consistency": 41.19245332144084
+  },
+  "performance_stats": {
+    "current_fps": 19.669632894521698,
+    "avg_frame_time": 0.0508397897084554,
+    "low_performance_mode": false,
+    "frame_skip_rate": 0,
+    "recommendations": [
+      "Reduce resolution",
+      "Close other applications",
+      "Improve lighting conditions"
+    ]
+  },
+  "feedback_analysis": {
+    "total_feedbacks": 50,
+    "feedback_distribution": {
+      "\u2713 PERFECT FORM": 24,
+      "\u26a0 AVOID FULL LOCKOUT": 21,
+      "\u2717 ELBOW SWING DETECTED": 5
+    },
+    "most_common_feedback": "\u2713 PERFECT FORM"
+  },
+  "config": {
+    "personal_min_angle": 170.09006491336888,
+    "personal_max_angle": 179.3263259072733,
+    "model_type": "heuristic"
+  }
+}

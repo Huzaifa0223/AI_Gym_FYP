@@ -1,0 +1,16 @@
+{
+  "include": ["."],
+  "exclude": [
+    ".venv",
+    "**/node_modules",
+    "**/__pycache__",
+    ".tmp.driveupload",
+    "data"
+  ],
+  "typeCheckingMode": "basic",
+  "reportMissingModuleSource": "none",
+  "reportMissingImports": "none",
+  "reportAttributeAccessIssue": "warning",
+  "reportPossiblyUnbound": "warning",
+  "pythonVersion": "3.11"
+}

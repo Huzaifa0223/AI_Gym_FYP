@@ -1,0 +1,22 @@
+2026-02-09 02:27:41,850 - INFO - [LOG] Writing output to: logs\process_custom_videos_20260209_022741.log
+2026-02-09 02:27:41,901 - INFO - 
+[*] Processing BACK only...
+2026-02-09 02:27:41,902 - INFO - 
+============================================================
+2026-02-09 02:27:41,902 - INFO - Processing: BACK
+2026-02-09 02:27:41,903 - INFO - ============================================================
+2026-02-09 02:27:41,904 - INFO - 
+📁 AGE 10–16 (Youth) → children
+2026-02-09 02:27:41,907 - INFO -   📂 Default goal Health  Strength Gain 5 exercises – 12 reps – 3 sets
+2026-02-09 02:27:41,931 - INFO -     Found 102 videos
+2026-02-09 02:27:41,986 - INFO -   Processing: Advanced Bird Dog.mp4
+2026-02-09 02:28:43,935 - INFO -     ✓ Extracted 622 frames
+2026-02-09 02:28:43,972 - INFO -   Processing: Bird Dog Exercise.mp4
+2026-02-09 02:29:16,263 - INFO -     ✓ Extracted 357 frames
+2026-02-09 02:29:16,316 - INFO -   Processing: Bird Dog Variations #coreexercise #backpain #beginnerworkout #bodyweightworkout.mp4
+2026-02-09 02:29:40,720 - INFO -     ✓ Extracted 245 frames
+2026-02-09 02:29:40,741 - INFO -   Processing: Bird dog_Superman exercise for Core.mp4
+2026-02-09 02:31:14,258 - INFO -     ✓ Extracted 834 frames
+2026-02-09 02:31:14,269 - INFO -   Processing: ClickUp_ The AI-Powered Work Platform.mp4
+2026-02-09 02:32:07,439 - INFO -     ✓ Extracted 351 frames
+2026-02-09 02:32:07,452 - INFO -   Processing: How to Do a Proper Bird Dog.mp4

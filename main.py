@@ -25,14 +25,14 @@ from mediapipe.python.solutions import pose as mp_pose_module
 
 # Import your visual engine
 try:
-    from visual_utils import VisualFeedback, DisplayMetrics
+    from utils.visual_utils import VisualFeedback, DisplayMetrics
     VISUAL_AVAILABLE = True
 except ImportError:
     print("[WARNING] Visual utils not found. Using basic rendering.")
     VISUAL_AVAILABLE = False
 
 try:
-    from expert_coach import ExpertCoach
+    from utils.expert_coach import ExpertCoach
     COACH_AVAILABLE = True
 except ImportError:
     print("[WARNING] Expert coach not found. Using basic feedback.")
@@ -45,8 +45,8 @@ except ImportError:
 class AppConfig:
     """Centralized configuration management"""
     # Model settings
-    model_path: str = 'bicep_model.pkl'
-    advanced_model_path: str = 'models/advanced_bicep_model.pkl'
+    model_path: str = 'data/models/bicep_adult.pkl'
+    advanced_model_path: str = 'data/models/advanced_bicep_model.pkl'
     
     # Camera settings
     target_fps: int = 30
@@ -61,9 +61,10 @@ class AppConfig:
     min_rep_time: float = 1.0
     max_rep_time: float = 4.0
     
-    # Performance
+    # Performance — frame-skip activates when FPS drops below this value.
+    # 20 gives headroom before the feed becomes visibly laggy.
     enable_optimizations: bool = True
-    low_perf_threshold: int = 15
+    low_perf_threshold: int = 20
     buffer_size: int = 30
     
     # ML Settings
@@ -100,6 +101,15 @@ class MLModelHandler:
         
     def load_model(self) -> bool:
         """Load model with intelligent fallback system"""
+        # TEMPORARILY DISABLED: ML model needs state-labeled training data
+        # to distinguish between "up" vs "down" bicep positions
+        print("[INFO] ML model training requires state labels - using heuristic for demo")
+        print("[INFO] Using heuristic fallback model")
+        self.model = HeuristicModel()
+        self.model_type = "heuristic"
+        return True
+        
+        # Future: Enable when training data includes up/down state labels
         models_to_try = [
             (self.config.advanced_model_path, self._load_advanced_model),
             (self.config.model_path, self._load_basic_model),
@@ -148,19 +158,32 @@ class MLModelHandler:
         """Load basic scikit-learn model"""
         try:
             with open(path, 'rb') as f:
-                self.model = pickle.load(f)
+                loaded_data = pickle.load(f)
+            
+            # Handle dict model format (from train_universal.py)
+            if isinstance(loaded_data, dict):
+                self.model = loaded_data.get('model')
+                self.model_type = loaded_data.get('type', 'supervised')
+                if self.model is None:
+                    print("[ERROR] Dict model missing 'model' key")
+                    return False
+            else:
+                self.model = loaded_data
+                self.model_type = "basic"
             
             # Test model compatibility
             try:
                 # Try 2-feature input
                 test_input = [[0, 0]]
                 self.model.predict(test_input)
-                self.model_type = "basic_2feature"
+                if not isinstance(loaded_data, dict):
+                    self.model_type = "basic_2feature"
             except ValueError:
                 # Try 1-feature input
                 test_input = [[0]]
                 self.model.predict(test_input)
-                self.model_type = "basic_1feature"
+                if not isinstance(loaded_data, dict):
+                    self.model_type = "basic_1feature"
             
             return True
         except Exception as e:
@@ -834,7 +857,12 @@ class AIGymTrainer:
         # Visualization
         self.visualizer = None
         self.coach = None
-        
+
+        # Exercise-class integration (set via setup_exercise before run())
+        self.exercise_instance = None
+        self.exercise_type = 'bicep'
+        self.age_group = 'adult'
+
         # Setup logging
         self._setup_logging()
         
@@ -853,7 +881,42 @@ class AIGymTrainer:
             ]
         )
         self.logger = logging.getLogger(__name__)
-    
+
+    def setup_exercise(self, exercise_type: str, age: int):
+        """
+        Instantiate the correct exercise class for the selected exercise and age.
+        Must be called before run().  Replaces the disabled MLModelHandler path
+        for all exercises.
+
+        exercise_type: 'bicep' | 'back' | 'chest'
+        age:           user's age in years (determines age-group & model file)
+        """
+        try:
+            from exercises.base_exercise import get_exercise_config
+            from exercises.back_exercise import BackExercise
+            from exercises.chest_exercise import ChestExercise
+            from exercises.bicep_curl import BicepCurlExercise
+
+            config = get_exercise_config(exercise_type, age)
+            self.exercise_type = exercise_type
+            self.age_group = config.age_group
+            self.config.model_path = config.model_path  # for logging
+
+            if exercise_type == 'bicep':
+                self.exercise_instance = BicepCurlExercise(config)
+            elif exercise_type == 'back':
+                self.exercise_instance = BackExercise(config)
+            elif exercise_type == 'chest':
+                self.exercise_instance = ChestExercise(config)
+            else:
+                print(f"[WARNING] Unknown exercise '{exercise_type}', defaulting to bicep")
+                self.exercise_instance = BicepCurlExercise(config)
+
+            print(f"[INFO] Exercise ready: {exercise_type.upper()} | {self.age_group.upper()}")
+        except Exception as e:
+            print(f"[WARNING] Could not set up exercise class: {e} — using legacy mode")
+            self.exercise_instance = None
+
     def initialize(self) -> bool:
         """Initialize all components"""
         self.logger.info("=" * 60)
@@ -875,14 +938,14 @@ class AIGymTrainer:
             
             # 3. Initialize visualizer
             if VISUAL_AVAILABLE:
-                self.visualizer = VisualFeedback(
+                self.visualizer = VisualFeedback(  # type: ignore[possibly-undefined]
                     resolution=self.config.resolution
                 )
                 self.logger.info("Visual feedback system initialized")
-            
+
             # 4. Initialize expert coach
             if COACH_AVAILABLE:
-                self.coach = ExpertCoach()
+                self.coach = ExpertCoach()  # type: ignore[possibly-undefined]
                 self.logger.info("Expert coach initialized")
             
             # 5. Create necessary directories
@@ -1095,8 +1158,70 @@ class AIGymTrainer:
         
         if results.pose_landmarks:  # type: ignore
             landmarks = results.pose_landmarks.landmark  # type: ignore
-            
-            # Analyze pose
+
+            # ── Exercise-class path (back / chest / bicep via class) ──────────
+            if self.exercise_instance is not None:
+                result = self.exercise_instance.process_frame(landmarks)
+
+                # Draw MediaPipe skeleton
+                try:
+                    mp_drawing.draw_landmarks(
+                        display_frame,
+                        results.pose_landmarks,  # type: ignore
+                        list(mp_pose_module.POSE_CONNECTIONS),
+                        mp_drawing.DrawingSpec(color=(0, 255, 0), thickness=2, circle_radius=2),
+                        mp_drawing.DrawingSpec(color=(255, 0, 0), thickness=2)
+                    )
+                except Exception as sk_err:
+                    self.logger.warning(f"Skeleton render error: {sk_err}")
+
+                # Exercise label (top-right corner)
+                h, w = display_frame.shape[:2]
+                label = f"{self.exercise_type.upper()} | {self.age_group.upper()}"
+                cv2.putText(display_frame, label, (w - 310, 30),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
+
+                # Primary angle annotation
+                cv2.putText(
+                    display_frame,
+                    f"Angle: {result.primary_angle:.1f}",
+                    (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2
+                )
+
+                # UI overlays
+                if self.visualizer:
+                    display_frame = self.visualizer.draw_status_box(
+                        display_frame, result.counter,
+                        result.feedback, result.color
+                    )
+                    display_frame = self.visualizer.draw_progress_bar(
+                        display_frame, result.rep_quality, 100, "Form Quality"
+                    )
+                    display_frame = self.visualizer.draw_fps(display_frame, fps)
+                else:
+                    # Minimal fallback when VisualFeedback is unavailable
+                    cv2.rectangle(display_frame, (0, h - 100), (w, h), (0, 0, 0), -1)
+                    cv2.putText(display_frame, f"Reps: {result.counter}",
+                                (10, h - 65), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 255), 3)
+                    cv2.putText(display_frame, result.feedback,
+                                (10, h - 25), cv2.FONT_HERSHEY_SIMPLEX, 0.9, result.color, 2)
+                    q_color = (0, 255, 0) if result.rep_quality >= 70 else (0, 165, 255)
+                    cv2.putText(display_frame, f"Quality: {result.rep_quality:.0f}%",
+                                (w - 220, h - 25), cv2.FONT_HERSHEY_SIMPLEX, 0.8, q_color, 2)
+
+                analysis_results = {
+                    'counter':         result.counter,
+                    'feedback':        result.feedback,
+                    'primary_angle':   result.primary_angle,
+                    'secondary_angle': result.secondary_angle,
+                    'rep_quality':     result.rep_quality,
+                    'stage':           result.stage,
+                    'model_missing':   result.model_missing,
+                }
+                return display_frame, analysis_results
+            # ── end exercise-class path ───────────────────────────────────────
+
+            # Legacy heuristic path (unchanged below)
             pose_analysis = self.pose_analyzer.analyze_pose(landmarks, "right")
             
             if pose_analysis:
@@ -1175,7 +1300,7 @@ class AIGymTrainer:
                     )
                     
                     # Prepare metrics
-                    metrics = DisplayMetrics(
+                    metrics = DisplayMetrics(  # type: ignore[possibly-undefined]
                         elbow_angle=pose_analysis['elbow_angle'],
                         torso_angle=pose_analysis['upper_arm_angle'],
                         torso_threshold=self.config.strict_mode_threshold,
@@ -1417,9 +1542,28 @@ def main():
     print("AI GYM TRAINER - PROFESSIONAL EDITION")
     print("Version 2.0 - Enhanced ML Integration")
     print("=" * 60)
-    
+
+    # ── Exercise selection ────────────────────────────────────────────────
+    print("\nSelect exercise:")
+    print("  1. Bicep Curl")
+    print("  2. Back Row")
+    print("  3. Chest Push-up")
+    ex_input = input("Enter choice [1-3, default=1]: ").strip() or "1"
+    exercise_map = {"1": "bicep", "2": "back", "3": "chest"}
+    exercise_type = exercise_map.get(ex_input, "bicep")
+
+    age_input = input("Enter your age [8-100, default=25]: ").strip() or "25"
+    try:
+        age = max(8, min(100, int(age_input)))
+    except ValueError:
+        age = 25
+
+    print(f"\n[INFO] Starting: {exercise_type.upper()}, age {age}")
+    # ─────────────────────────────────────────────────────────────────────
+
     try:
         trainer = AIGymTrainer()
+        trainer.setup_exercise(exercise_type, age)
         trainer.run()
         
     except Exception as e:

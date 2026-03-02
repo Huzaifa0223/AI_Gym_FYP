@@ -4,12 +4,12 @@ Supports age-specific variations and form detection
 """
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Dict, Tuple, Optional, List
+from typing import Dict, Tuple, List
 from collections import deque
-import numpy as np
+
 
 @dataclass
-class ExerciseConfig:
+class ExerciseConfig:  # pylint: disable=too-many-instance-attributes
     """Configuration for age-specific exercise parameters"""
     name: str
     age_group: str  # 'children', 'adult', 'senior'
@@ -19,11 +19,12 @@ class ExerciseConfig:
     max_rep_time: float
     strict_mode_threshold: float
     model_path: str
-    
+
     # Age-specific adjustments
     flexibility_tolerance: float = 10.0  # Extra degrees allowed
-    speed_tolerance: float = 0.5  # Extra seconds allowed
-    form_strictness: float = 1.0  # Multiplier for form checking
+    speed_tolerance: float = 0.5         # Extra seconds allowed
+    form_strictness: float = 1.0         # Multiplier for form checking
+
 
 # Age-specific configurations
 AGE_CONFIGS = {
@@ -152,105 +153,130 @@ AGE_CONFIGS = {
     }
 }
 
+
 @dataclass
-class ExerciseResult:
+class ExerciseResult:  # pylint: disable=too-many-instance-attributes
     """Standardized result format for all exercises"""
     counter: int
     feedback: str
     color: Tuple[int, int, int]
-    primary_angle: float  # Main angle being tracked
+    primary_angle: float    # Main angle being tracked
     secondary_angle: float  # Supporting angle
     stage: str
     confidence: float
     is_valid_rep: bool
-    rep_quality: float  # 0-100 score
+    rep_quality: float      # 0-100 score
     exercise_type: str
     age_group: str
     model_missing: bool = False
 
+
 class BaseExercise(ABC):
     """Abstract base class for all exercise detection"""
-    
+
     def __init__(self, config: ExerciseConfig):
         self.config = config
         self.counter = 0
         self.stage = "down"
         self.model = None
         # Temporal smoothing buffer to prevent flickering (5-frame window)
-        self.state_buffer = deque(maxlen=5)
+        self.state_buffer: deque = deque(maxlen=5)
         self.load_model()
-    
+
     @abstractmethod
     def load_model(self):
         """Load the ML model for this exercise"""
-        pass
-    
+
     @abstractmethod
     def get_required_landmarks(self) -> List[int]:
         """Return list of MediaPipe landmark indices needed"""
-        pass
-    
+
     @abstractmethod
     def calculate_angles(self, landmarks) -> Dict[str, float]:
         """Calculate relevant angles from landmarks"""
-        pass
-    
+
     @abstractmethod
     def check_form(self, landmarks, angles: Dict[str, float]) -> Tuple[str, Tuple[int, int, int], float]:
         """Check exercise form and return (feedback, color, quality_score)"""
-        pass
-    
+
     @abstractmethod
     def detect_rep(self, landmarks, angles: Dict[str, float]) -> bool:
         """Detect if a valid rep has been completed"""
-        pass
-    
+
     def get_smoothed_state(self, detected_state: str) -> str:
         """
         Apply temporal smoothing using majority voting to prevent flickering.
-        
+
         Args:
             detected_state: The state detected in the current frame ('UP', 'DOWN', etc.)
-        
+
         Returns:
             final_state: The smoothed state based on majority vote from last 5 frames
         """
-        # Add current state to buffer
         self.state_buffer.append(detected_state)
-        
-        # Count occurrences of each state
-        state_counts = {}
+
+        state_counts: Dict[str, int] = {}
         for state in self.state_buffer:
             state_counts[state] = state_counts.get(state, 0) + 1
-        
-        # Return the state with highest frequency (majority vote)
-        final_state = max(state_counts, key=state_counts.get)
-        
-        return final_state
-    
+
+        # Majority vote — lambda ensures type checker sees int return
+        return max(state_counts, key=lambda s: state_counts.get(s, 0))
+
     def update_state_with_smoothing(self, detected_state: str) -> bool:
         """
         Update internal stage with temporal smoothing.
         Only changes state if the smoothed state differs from current state.
-        
+
         Args:
             detected_state: The state detected in the current frame
-        
+
         Returns:
             state_changed: True if stage was updated, False otherwise
         """
         smoothed_state = self.get_smoothed_state(detected_state)
-        
+
         if smoothed_state != self.stage:
             self.stage = smoothed_state
             return True
-        
+
         return False
-    
+
+    def _ml_predict_form(self, features: list):
+        """
+        Run the trained Random Forest model to assess form quality.
+
+        Models are stored as dicts: {'model': RandomForest, ...}
+        Class 0 = bad form,  Class 1 = good form.
+
+        Returns:
+            (is_good_form, quality_score_0_to_100)
+            is_good_form = None when no model is available (caller falls back
+            to rule-based logic).
+        """
+        if self.model is None:
+            return None, 100.0
+        try:  # pylint: disable=broad-except
+            raw_model = (
+                self.model.get('model', self.model)
+                if isinstance(self.model, dict)
+                else self.model
+            )
+            n_expected = getattr(raw_model, 'n_features_in_', len(features))
+            feat = [features[:n_expected]]
+            prediction = int(raw_model.predict(feat)[0])
+            quality = 100.0
+            if hasattr(raw_model, 'predict_proba'):
+                proba = raw_model.predict_proba(feat)[0]
+                good_idx = min(1, len(proba) - 1)  # index 1 = P(good form)
+                quality = float(proba[good_idx]) * 100
+            return (prediction == 1), quality
+        except Exception:  # pylint: disable=broad-except
+            return None, 100.0
+
     def process_frame(self, landmarks) -> ExerciseResult:
         """
-        Main processing method - called for each frame
-        Returns standardized ExerciseResult
+        Main processing method - called for each frame.
+        Returns standardized ExerciseResult.
         """
         if not landmarks:
             return ExerciseResult(
@@ -267,18 +293,14 @@ class BaseExercise(ABC):
                 age_group=self.config.age_group,
                 model_missing=self.model is None
             )
-        
-        # Calculate angles specific to this exercise
+
         angles = self.calculate_angles(landmarks)
-        
-        # Check form
         feedback, color, quality = self.check_form(landmarks, angles)
-        
-        # Detect rep completion
+
         is_valid_rep = self.detect_rep(landmarks, angles)
         if is_valid_rep:
             self.counter += 1
-        
+
         return ExerciseResult(
             counter=self.counter,
             feedback=feedback,
@@ -293,21 +315,22 @@ class BaseExercise(ABC):
             age_group=self.config.age_group,
             model_missing=self.model is None
         )
-    
+
     def reset(self):
         """Reset exercise counter and state"""
         self.counter = 0
         self.stage = "down"
-        self.state_buffer.clear()  # Clear temporal smoothing buffer on reset
+        self.state_buffer.clear()
+
 
 def get_exercise_config(exercise_type: str, age: int) -> ExerciseConfig:
     """
-    Get appropriate exercise configuration based on age
-    
+    Get appropriate exercise configuration based on age.
+
     Args:
         exercise_type: 'bicep', 'back', or 'chest'
         age: User's age in years
-    
+
     Returns:
         ExerciseConfig for the specified exercise and age group
     """
@@ -317,5 +340,5 @@ def get_exercise_config(exercise_type: str, age: int) -> ExerciseConfig:
         age_group = 'adult'
     else:
         age_group = 'senior'
-    
+
     return AGE_CONFIGS[age_group][exercise_type]

@@ -1,0 +1,283 @@
+2026-02-09 12:49:46,948 - INFO - ============================================================
+2026-02-09 12:49:46,971 - INFO - AI GYM TRAINER - PROFESSIONAL EDITION
+2026-02-09 12:49:46,976 - INFO - ============================================================
+2026-02-09 12:49:46,986 - INFO - Loading ML model...
+2026-02-09 12:49:57,451 - INFO - Initializing camera...
+2026-02-09 12:50:02,894 - INFO - Visual feedback system initialized
+2026-02-09 12:50:02,895 - INFO - Expert coach initialized
+2026-02-09 12:50:02,896 - INFO - Initialization complete
+2026-02-09 12:50:02,896 - INFO - Starting user calibration...
+2026-02-09 12:50:07,157 - INFO - Calibration complete. Min angle: 154.8°, Max angle: 157.7°
+2026-02-09 12:50:07,161 - INFO - Calibration data saved to user_calibration/user_default_20260209_125007.json
+2026-02-09 12:50:07,162 - INFO - Starting main loop...
+2026-02-09 12:51:22,220 - INFO - Quit requested
+2026-02-09 12:51:22,220 - INFO - Cleaning up resources...
+2026-02-09 12:51:22,572 - INFO - 
+            ========================================
+            SESSION SUMMARY
+            ========================================
+            Total Reps: 0
+            Average Form Score: 0.0%
+            Best Form Score: 0.0%
+            Average Rep Duration: 1.99s
+            Consistency: 0.8%
+            Session Duration: 75.4s
+            Reps per Minute: 0.0
+            Model Type: heuristic
+            ========================================
+            
+2026-02-09 12:51:22,578 - INFO - Cleanup complete
+2026-02-09 12:54:44,983 - INFO - ============================================================
+2026-02-09 12:54:44,986 - INFO - AI GYM TRAINER - PROFESSIONAL EDITION
+2026-02-09 12:54:44,986 - INFO - ============================================================
+2026-02-09 12:54:44,986 - INFO - Loading ML model...
+2026-02-09 12:54:53,592 - INFO - Initializing camera...
+2026-02-09 12:54:57,055 - INFO - Visual feedback system initialized
+2026-02-09 12:54:57,055 - INFO - Expert coach initialized
+2026-02-09 12:54:57,057 - INFO - Initialization complete
+2026-02-09 12:54:57,057 - INFO - Starting user calibration...
+2026-02-09 12:55:02,454 - INFO - Calibration complete. Min angle: 157.0°, Max angle: 179.8°
+2026-02-09 12:55:02,462 - INFO - Calibration data saved to user_calibration/user_default_20260209_125502.json
+2026-02-09 12:55:02,464 - INFO - Starting main loop...
+2026-02-09 12:57:10,277 - INFO - Session saved to session_logs/session_20260209_125710.json
+2026-02-09 12:57:12,312 - INFO - Quit requested
+2026-02-09 12:57:12,313 - INFO - Cleaning up resources...
+2026-02-09 12:57:12,818 - INFO - 
+            ========================================
+            SESSION SUMMARY
+            ========================================
+            Total Reps: 19
+            Average Form Score: 94.6%
+            Best Form Score: 97.0%
+            Average Rep Duration: 1.62s
+            Consistency: -56.8%
+            Session Duration: 130.4s
+            Reps per Minute: 8.7
+            Model Type: heuristic
+            ========================================
+            
+2026-02-09 12:57:12,819 - INFO - Cleanup complete
+2026-02-09 13:09:17,069 - INFO - ============================================================
+2026-02-09 13:09:17,072 - INFO - AI GYM TRAINER - PROFESSIONAL EDITION
+2026-02-09 13:09:17,072 - INFO - ============================================================
+2026-02-09 13:09:17,073 - INFO - Loading ML model...
+2026-02-09 13:09:19,763 - INFO - Initializing camera...
+2026-02-09 13:09:23,483 - INFO - Visual feedback system initialized
+2026-02-09 13:09:23,483 - INFO - Expert coach initialized
+2026-02-09 13:09:23,486 - INFO - Initialization complete
+2026-02-09 13:09:23,486 - INFO - Starting user calibration...
+2026-02-09 13:09:27,267 - INFO - Calibration complete. Min angle: 148.6°, Max angle: 171.4°
+2026-02-09 13:09:27,273 - INFO - Calibration data saved to user_calibration/user_default_20260209_130927.json
+2026-02-09 13:09:27,275 - INFO - Starting main loop...
+2026-02-09 13:10:31,266 - INFO - Quit requested
+2026-02-09 13:10:31,280 - INFO - Cleaning up resources...
+2026-02-09 13:10:31,796 - INFO - 
+            ========================================
+            SESSION SUMMARY
+            ========================================
+            Total Reps: 4
+            Average Form Score: 96.2%
+            Best Form Score: 96.4%
+            Average Rep Duration: 0.94s
+            Consistency: 39.4%
+            Session Duration: 64.5s
+            Reps per Minute: 3.7
+            Model Type: heuristic
+            ========================================
+            
+2026-02-09 13:10:31,799 - INFO - Cleanup complete
+2026-02-09 13:12:02,397 - INFO - ============================================================
+2026-02-09 13:12:02,398 - INFO - AI GYM TRAINER - PROFESSIONAL EDITION
+2026-02-09 13:12:02,399 - INFO - ============================================================
+2026-02-09 13:12:02,399 - INFO - Loading ML model...
+2026-02-09 13:12:09,057 - INFO - Initializing camera...
+2026-02-09 13:12:12,706 - INFO - Visual feedback system initialized
+2026-02-09 13:12:12,707 - INFO - Expert coach initialized
+2026-02-09 13:12:12,707 - INFO - Initialization complete
+2026-02-09 13:12:12,708 - INFO - Starting user calibration...
+2026-02-09 13:12:16,705 - INFO - Calibration complete. Min angle: 155.8°, Max angle: 170.1°
+2026-02-09 13:12:16,711 - INFO - Calibration data saved to user_calibration/user_default_20260209_131216.json
+2026-02-09 13:12:16,712 - INFO - Starting main loop...
+2026-02-09 13:13:30,788 - INFO - ============================================================
+2026-02-09 13:13:30,788 - INFO - AI GYM TRAINER - PROFESSIONAL EDITION
+2026-02-09 13:13:30,788 - INFO - ============================================================
+2026-02-09 13:13:30,788 - INFO - Loading ML model...
+2026-02-09 13:13:33,805 - INFO - Initializing camera...
+2026-02-09 13:13:37,246 - INFO - Visual feedback system initialized
+2026-02-09 13:13:37,246 - INFO - Expert coach initialized
+2026-02-09 13:13:37,247 - INFO - Initialization complete
+2026-02-09 13:13:37,247 - INFO - Starting user calibration...
+2026-02-09 13:13:41,090 - INFO - Calibration complete. Min angle: 156.7°, Max angle: 164.6°
+2026-02-09 13:13:41,097 - INFO - Calibration data saved to user_calibration/user_default_20260209_131341.json
+2026-02-09 13:13:41,097 - INFO - Starting main loop...
+2026-02-09 13:14:14,698 - INFO - Quit requested
+2026-02-09 13:14:14,698 - INFO - Cleaning up resources...
+2026-02-09 13:14:15,023 - INFO - 
+            ========================================
+            SESSION SUMMARY
+            ========================================
+            Total Reps: 0
+            Average Form Score: 0.0%
+            Best Form Score: 0.0%
+            Average Rep Duration: 0.00s
+            Consistency: 0.0%
+            Session Duration: 33.9s
+            Reps per Minute: 0.0
+            Model Type: supervised
+            ========================================
+            
+2026-02-09 13:14:15,023 - INFO - Cleanup complete
+2026-02-09 13:15:59,217 - INFO - ============================================================
+2026-02-09 13:15:59,220 - INFO - AI GYM TRAINER - PROFESSIONAL EDITION
+2026-02-09 13:15:59,221 - INFO - ============================================================
+2026-02-09 13:15:59,221 - INFO - Loading ML model...
+2026-02-09 13:16:06,333 - INFO - Initializing camera...
+2026-02-09 13:16:09,940 - INFO - Visual feedback system initialized
+2026-02-09 13:16:09,940 - INFO - Expert coach initialized
+2026-02-09 13:16:09,942 - INFO - Initialization complete
+2026-02-09 13:16:09,943 - INFO - Starting user calibration...
+2026-02-09 13:16:14,737 - INFO - Calibration complete. Min angle: 104.3°, Max angle: 177.5°
+2026-02-09 13:16:14,744 - INFO - Calibration data saved to user_calibration/user_default_20260209_131614.json
+2026-02-09 13:16:14,745 - INFO - Starting main loop...
+2026-02-09 13:17:40,599 - INFO - No reps to save
+2026-02-09 13:17:41,798 - INFO - Quit requested
+2026-02-09 13:17:41,799 - INFO - Cleaning up resources...
+2026-02-09 13:17:42,242 - INFO - 
+            ========================================
+            SESSION SUMMARY
+            ========================================
+            Total Reps: 0
+            Average Form Score: 0.0%
+            Best Form Score: 0.0%
+            Average Rep Duration: 0.00s
+            Consistency: 0.0%
+            Session Duration: 87.5s
+            Reps per Minute: 0.0
+            Model Type: supervised
+            ========================================
+            
+2026-02-09 13:17:42,242 - INFO - Cleanup complete
+2026-02-09 13:20:19,139 - INFO - ============================================================
+2026-02-09 13:20:19,140 - INFO - AI GYM TRAINER - PROFESSIONAL EDITION
+2026-02-09 13:20:19,141 - INFO - ============================================================
+2026-02-09 13:20:19,141 - INFO - Loading ML model...
+2026-02-09 13:20:19,142 - INFO - Initializing camera...
+2026-02-09 13:20:23,409 - INFO - Visual feedback system initialized
+2026-02-09 13:20:23,409 - INFO - Expert coach initialized
+2026-02-09 13:20:23,410 - INFO - Initialization complete
+2026-02-09 13:20:23,410 - INFO - Starting user calibration...
+2026-02-09 13:20:30,287 - INFO - Calibration complete. Min angle: 114.7°, Max angle: 163.6°
+2026-02-09 13:20:30,295 - INFO - Calibration data saved to user_calibration/user_default_20260209_132030.json
+2026-02-09 13:20:30,295 - INFO - Starting main loop...
+2026-02-09 13:20:38,059 - INFO - Starting user calibration...
+2026-02-09 13:20:41,380 - INFO - Calibration complete. Min angle: 162.3°, Max angle: 179.6°
+2026-02-09 13:20:41,382 - INFO - Calibration data saved to user_calibration/user_default_20260209_132041.json
+2026-02-09 13:20:45,430 - INFO - Starting user calibration...
+2026-02-09 13:20:49,162 - INFO - Calibration complete. Min angle: 170.1°, Max angle: 179.3°
+2026-02-09 13:20:49,165 - INFO - Calibration data saved to user_calibration/user_default_20260209_132049.json
+2026-02-09 13:21:57,522 - INFO - Session saved to session_logs/session_20260209_132157.json
+2026-02-09 13:22:01,388 - INFO - Session saved to session_logs/session_20260209_132201.json
+2026-02-09 13:22:02,668 - INFO - Quit requested
+2026-02-09 13:22:02,669 - INFO - Cleaning up resources...
+2026-02-09 13:22:03,210 - INFO - 
+            ========================================
+            SESSION SUMMARY
+            ========================================
+            Total Reps: 11
+            Average Form Score: 93.5%
+            Best Form Score: 97.0%
+            Average Rep Duration: 1.05s
+            Consistency: 41.2%
+            Session Duration: 92.9s
+            Reps per Minute: 7.1
+            Model Type: heuristic
+            ========================================
+            
+2026-02-09 13:22:03,210 - INFO - Cleanup complete
+2026-02-09 13:51:27,973 - INFO - ============================================================
+2026-02-09 13:51:27,975 - INFO - AI GYM TRAINER - PROFESSIONAL EDITION
+2026-02-09 13:51:27,976 - INFO - ============================================================
+2026-02-09 13:51:27,976 - INFO - Loading ML model...
+2026-02-09 13:51:27,977 - INFO - Initializing camera...
+2026-02-09 13:51:33,117 - INFO - Visual feedback system initialized
+2026-02-09 13:51:33,119 - INFO - Expert coach initialized
+2026-02-09 13:51:33,120 - INFO - Initialization complete
+2026-02-09 13:51:33,121 - INFO - Starting user calibration...
+2026-02-09 13:51:40,513 - INFO - Calibration complete. Min angle: 34.4°, Max angle: 164.3°
+2026-02-09 13:51:40,529 - INFO - Calibration data saved to user_calibration/user_default_20260209_135140.json
+2026-02-09 13:51:40,531 - INFO - Starting main loop...
+2026-02-09 13:52:03,971 - INFO - Quit requested
+2026-02-09 13:52:03,972 - INFO - Cleaning up resources...
+2026-02-09 13:52:04,387 - INFO - 
+            ========================================
+            SESSION SUMMARY
+            ========================================
+            Total Reps: 2
+            Average Form Score: 79.0%
+            Best Form Score: 80.7%
+            Average Rep Duration: 2.48s
+            Consistency: 55.3%
+            Session Duration: 23.8s
+            Reps per Minute: 5.0
+            Model Type: heuristic
+            ========================================
+            
+2026-02-09 13:52:04,389 - INFO - Cleanup complete
+2026-02-09 13:54:26,124 - INFO - ============================================================
+2026-02-09 13:54:26,125 - INFO - AI GYM TRAINER - PROFESSIONAL EDITION
+2026-02-09 13:54:26,126 - INFO - ============================================================
+2026-02-09 13:54:26,126 - INFO - Loading ML model...
+2026-02-09 13:54:26,127 - INFO - Initializing camera...
+2026-02-09 13:54:30,812 - INFO - Visual feedback system initialized
+2026-02-09 13:54:30,813 - INFO - Expert coach initialized
+2026-02-09 13:54:30,815 - INFO - Initialization complete
+2026-02-09 13:54:30,815 - INFO - Starting user calibration...
+2026-02-09 13:54:38,123 - INFO - Calibration complete. Min angle: 32.4°, Max angle: 166.5°
+2026-02-09 13:54:38,140 - INFO - Calibration data saved to user_calibration/user_default_20260209_135438.json
+2026-02-09 13:54:38,155 - INFO - Starting main loop...
+2026-02-09 13:54:51,060 - INFO - Quit requested
+2026-02-09 13:54:51,063 - INFO - Cleaning up resources...
+2026-02-09 13:54:51,608 - INFO - 
+            ========================================
+            SESSION SUMMARY
+            ========================================
+            Total Reps: 0
+            Average Form Score: 0.0%
+            Best Form Score: 0.0%
+            Average Rep Duration: 0.12s
+            Consistency: 67.2%
+            Session Duration: 13.4s
+            Reps per Minute: 0.0
+            Model Type: heuristic
+            ========================================
+            
+2026-02-09 13:54:51,626 - INFO - Cleanup complete
+2026-02-09 14:41:39,728 - INFO - ============================================================
+2026-02-09 14:41:39,730 - INFO - AI GYM TRAINER - PROFESSIONAL EDITION
+2026-02-09 14:41:39,730 - INFO - ============================================================
+2026-02-09 14:41:39,730 - INFO - Loading ML model...
+2026-02-09 14:41:39,731 - INFO - Initializing camera...
+2026-02-09 14:41:43,845 - INFO - Visual feedback system initialized
+2026-02-09 14:41:43,845 - INFO - Expert coach initialized
+2026-02-09 14:41:43,846 - INFO - Initialization complete
+2026-02-09 14:41:43,846 - INFO - Starting user calibration...
+2026-02-09 14:41:50,767 - INFO - Calibration complete. Min angle: 167.0°, Max angle: 179.9°
+2026-02-09 14:41:50,776 - INFO - Calibration data saved to user_calibration/user_default_20260209_144150.json
+2026-02-09 14:41:50,777 - INFO - Starting main loop...
+2026-02-09 14:42:11,263 - INFO - Quit requested
+2026-02-09 14:42:11,264 - INFO - Cleaning up resources...
+2026-02-09 14:42:11,643 - INFO - 
+            ========================================
+            SESSION SUMMARY
+            ========================================
+            Total Reps: 0
+            Average Form Score: 0.0%
+            Best Form Score: 0.0%
+            Average Rep Duration: 0.07s
+            Consistency: 100.0%
+            Session Duration: 20.9s
+            Reps per Minute: 0.0
+            Model Type: heuristic
+            ========================================
+            
+2026-02-09 14:42:11,696 - INFO - Cleanup complete

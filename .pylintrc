@@ -1,0 +1,36 @@
+[MASTER]
+ignore=.venv,data,session_logs,user_calibration,.tmp.driveupload
+jobs=1
+
+[MESSAGES CONTROL]
+# Suppress noisy warnings that don't affect functionality in an ML project
+disable=
+    trailing-whitespace,
+    line-too-long,
+    too-many-instance-attributes,
+    too-many-arguments,
+    too-many-locals,
+    too-many-branches,
+    too-many-statements,
+    broad-exception-caught,
+    missing-module-docstring,
+    missing-function-docstring,
+    import-error,
+    no-member,
+    c-extension-no-member
+
+[FORMAT]
+max-line-length=120
+indent-string='    '
+
+[DESIGN]
+max-attributes=15
+max-args=10
+max-locals=20
+max-branches=15
+max-statements=60
+
+[TYPECHECK]
+# Ignore dynamic attributes from mediapipe, cv2, numpy
+ignored-modules=mediapipe,cv2,numpy,sklearn
+ignored-classes=mediapipe,cv2
