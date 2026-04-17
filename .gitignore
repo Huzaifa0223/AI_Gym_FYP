@@ -31,3 +31,13 @@ venv/
 dist/
 build/
 *.egg
+
+# Legacy cruft — prevent re-introduction
+*.pkl
+*_backup*.py
+back_processing_log.txt
+test_results_pipeline.txt
+workout_*.json
+skeleton_screenshot_*.jpg
+test_visualization.jpg
+Untitled*.ipynb
