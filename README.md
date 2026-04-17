@@ -46,3 +46,119 @@ videos/{exercise}/{age_group}/good_form/
   age_group: children | adult | senior
 ```
 Then rerun training.
+
+---
+
+## Developer Environment
+
+### Requirements
+
+- **Python 3.11** (exactly) — the project uses type-hint syntax and library
+  versions pinned to 3.11. Check with `python --version`.
+- **Git** for cloning and version control.
+- **Claude Code native binary** — the standard dev-toolchain for this project
+  (see installation below).
+
+---
+
+### One-command setup
+
+**Windows (PowerShell)**
+
+```powershell
+# From repo root — creates .venv, installs deps, checks for Claude Code
+powershell -ExecutionPolicy Bypass -File scripts\setup_dev.ps1
+```
+
+**Linux / macOS / WSL (bash)**
+
+```bash
+# Make executable once, then run
+chmod +x scripts/setup_dev.sh
+./scripts/setup_dev.sh
+```
+
+Both scripts are **idempotent** — safe to re-run after pulling new changes.
+
+---
+
+### Start the REST API
+
+```bash
+# Activate venv first
+# Windows:  .\.venv\Scripts\Activate.ps1
+# Linux:    source .venv/bin/activate
+
+uvicorn api_backend:app --reload --host 0.0.0.0 --port 8000
+```
+
+- API docs (Swagger UI): http://localhost:8000/docs
+- Health check: http://localhost:8000/health
+- Model status: http://localhost:8000/api/models/status
+
+---
+
+### Start the real-time CV loop
+
+```bash
+python main.py
+```
+
+Opens an OpenCV window. Press `q` to quit. Requires a webcam.
+
+---
+
+### Run tests
+
+```bash
+pytest tests/ -v
+```
+
+---
+
+### Train all 9 ML models
+
+```bash
+python training/train_universal.py
+```
+
+Models are written to `data/models/` as `{exercise}_{age_group}.pkl`.
+
+---
+
+### Claude Code — standard dev toolchain
+
+Claude Code is the official AI assistant integrated into this project's workflow.
+
+**Install (Linux / macOS / WSL)**
+
+```bash
+curl -fsSL https://claude.ai/install.sh | bash
+```
+
+**Install (Windows PowerShell)**
+
+```powershell
+irm https://claude.ai/install.ps1 | iex
+```
+
+Do **not** use `npm install -g @anthropic-ai/claude-code`.
+
+**Verify**
+
+```bash
+claude --version
+```
+
+**Usage**
+
+```bash
+# Interactive session from repo root
+claude
+
+# Single command
+claude "explain the angle calculation in utils/angle_utils.py"
+```
+
+Claude Code reads `CLAUDE.md` at the repo root for project-specific instructions.
+All architectural decisions and coding standards are documented there.
