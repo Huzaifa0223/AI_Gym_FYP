@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 from typing import Dict
-from video_pipeline import VideoProcessor
+from pipeline.video_pipeline import VideoProcessor
 import tempfile
 import os
 

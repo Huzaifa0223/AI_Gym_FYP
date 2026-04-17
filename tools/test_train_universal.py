@@ -8,7 +8,7 @@ import pandas as pd
 from pathlib import Path
 import tempfile
 import pickle
-from train_universal import ExerciseModelTrainer
+from training.train_universal import ExerciseModelTrainer
 
 def test_noise_injection():
     """Test noise injection for robust training"""

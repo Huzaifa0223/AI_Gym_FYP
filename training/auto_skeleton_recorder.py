@@ -10,7 +10,7 @@ import mediapipe as mp
 import time
 import argparse
 
-from skeleton_recorder import SkeletonRecorder   # reuse — no duplicate code
+from training.skeleton_recorder import SkeletonRecorder   # reuse — no duplicate code
 
 # MediaPipe setup
 mp_drawing = mp.solutions.drawing_utils
