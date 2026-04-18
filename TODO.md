@@ -17,3 +17,8 @@
   - Chest: `min_plank=165°`, `min_leg=170°`
   - Shared: tempo symmetry ratio in `[0.7, 1.5]`
 - **Priority:** Medium (do before final FYP submission).
+
+## API Integration Follow-ups
+- **WebSocket endpoint** for real-time scoring from a streaming landmark feed (not yet implemented — /api/score is one-shot video only).
+- **Progress stream** for long videos: return Server-Sent Events with per-rep scores as they close, instead of waiting for the whole video to process.
+- **Priority:** Low — current endpoint is viva-demoable as-is.

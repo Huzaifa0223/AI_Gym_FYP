@@ -98,6 +98,73 @@ uvicorn api_backend:app --reload --host 0.0.0.0 --port 8000
 
 ---
 
+### Score a workout video
+
+`POST /api/score` accepts a full workout clip and returns a rep-by-rep
+breakdown in a single call.
+
+```
+POST /api/score
+Content-Type: multipart/form-data
+
+Form fields:
+  video      — UploadFile (mp4/mov/avi/webm, max 50 MB)
+  exercise   — one of: bicep, back, chest
+  age_group  — one of: children, adult, senior
+```
+
+**curl example**
+
+```bash
+curl -X POST http://localhost:8000/api/score \
+     -F "video=@/path/to/workout.mp4;type=video/mp4" \
+     -F "exercise=bicep" \
+     -F "age_group=adult"
+```
+
+**Sample response**
+
+```json
+{
+  "exercise": "bicep",
+  "age_group": "adult",
+  "total_reps": 2,
+  "average_score": 82.5,
+  "frames_processed": 180,
+  "frames_with_landmarks": 176,
+  "processing_time_s": 4.21,
+  "reps": [
+    {
+      "rep_number": 1,
+      "start_ts": 0.40,
+      "end_ts": 2.10,
+      "duration_s": 1.70,
+      "peak_angle": 162.4,
+      "trough_angle": 42.1,
+      "ml_score": 88.0,
+      "ml_confidence": 0.91,
+      "rule_penalty": 5.0,
+      "final_score": 83.0,
+      "violations": [
+        {
+          "name": "too_fast",
+          "severity": "minor",
+          "message": "Rep too fast (0.7s < 1.0s) — control the negative",
+          "penalty": 5.0
+        }
+      ]
+    }
+  ]
+}
+```
+
+`ml_score`, `ml_confidence`, and `final_score` are `null` when the ML
+model is unavailable for the requested `{exercise, age_group}` pair.
+Error responses: **400** (bad input / undecodable video), **413** (>50 MB),
+**415** (non-`video/*` content type), **422** (missing form field).
+
+---
+
 ### Start the real-time CV loop
 
 ```bash
