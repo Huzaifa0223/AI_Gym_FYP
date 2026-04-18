@@ -8,8 +8,9 @@ from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field, validator
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Literal
 import cv2
+import math
 import mediapipe as mp
 import numpy as np
 import base64
@@ -31,6 +32,18 @@ from exercises.bicep_curl import BicepCurlExercise
 # Import auto-detection
 from core.exercise_classifier import ExerciseClassifier, quick_detect_exercise
 
+# Video-based scoring pipeline
+import config as app_config
+from core.form_scorer import FormScore, FormScorer
+from core.rep_counter import RepEvent, make_rep_counter
+from core.rule_engine import FormViolation
+from core.video_processor import (
+    NoFramesExtractedError,
+    UnsupportedExerciseError,
+    VideoDecodeError,
+    VideoProcessor,
+)
+
 # ===========================================
 # LOGGING CONFIGURATION
 # ===========================================
@@ -45,6 +58,7 @@ logger = logging.getLogger(__name__)
 # ===========================================
 MAX_FRAME_SIZE_MB = 5
 MAX_IMAGE_DIMENSION = 1920
+MAX_VIDEO_BYTES = 50 * 1024 * 1024  # 50 MB cap for /api/score uploads
 MODELS_DIR = Path("data/models")
 EXERCISES = ["bicep", "back", "chest"]
 AGE_GROUPS = ["children", "adult", "senior"]
@@ -104,6 +118,71 @@ class WorkoutSession(BaseModel):
     total_reps: int = 0
     valid_reps: int = 0
     average_quality: float = 0.0
+
+# ---- /api/score response schema ---------------------------------------------
+# These models describe the flat JSON returned by the video-based scoring
+# endpoint.  NaN values from FormScorer (unavailable ML / rules) are mapped to
+# JSON ``null`` because the JSON spec does not define NaN.
+
+class ViolationResult(BaseModel):
+    name: str
+    severity: Literal['minor', 'major']
+    message: str
+    penalty: float
+
+class RepResult(BaseModel):
+    rep_number: int
+    start_ts: float
+    end_ts: float
+    duration_s: float
+    peak_angle: float
+    trough_angle: float
+    ml_score: Optional[float] = None
+    ml_confidence: Optional[float] = None
+    rule_penalty: float
+    final_score: Optional[float] = None
+    violations: List[ViolationResult]
+
+class ScoreResponse(BaseModel):
+    exercise: str
+    age_group: str
+    total_reps: int
+    average_score: Optional[float] = None
+    frames_processed: int
+    frames_with_landmarks: int
+    processing_time_s: float
+    reps: List[RepResult]
+
+
+def _nan_to_none(value: float) -> Optional[float]:
+    """Return ``None`` for NaN, else the value — JSON has no NaN literal."""
+    return None if math.isnan(value) else value
+
+
+def _to_violation_result(v: FormViolation) -> ViolationResult:
+    return ViolationResult(
+        name=v.name,
+        severity=v.severity,
+        message=v.message,
+        penalty=v.penalty,
+    )
+
+
+def _to_rep_result(event: RepEvent, score: FormScore) -> RepResult:
+    """Convert a (RepEvent, FormScore) pair into a JSON-safe RepResult."""
+    return RepResult(
+        rep_number=event.rep_number,
+        start_ts=event.start_ts,
+        end_ts=event.end_ts,
+        duration_s=event.duration_s,
+        peak_angle=event.peak_angle,
+        trough_angle=event.trough_angle,
+        ml_score=_nan_to_none(score.ml_score),
+        ml_confidence=_nan_to_none(score.ml_confidence),
+        rule_penalty=score.rule_penalty,
+        final_score=_nan_to_none(score.final_score),
+        violations=[_to_violation_result(v) for v in score.violations],
+    )
 
 # ===========================================
 # FASTAPI APP
@@ -441,6 +520,112 @@ async def end_session(session_id: str = Form(...)):
     exercise_manager.remove_session(session_id)
     
     return summary
+
+@app.post("/api/score", response_model=ScoreResponse)
+async def score_video(
+    video: UploadFile = File(..., description="Workout video (mp4/mov/avi/webm)"),
+    exercise: str = Form(..., description="One of: bicep, back, chest"),
+    age_group: str = Form(..., description="One of: children, adult, senior"),
+) -> ScoreResponse:
+    """Score a full workout video, rep by rep.
+
+    Runs the VideoProcessor → RepCounter → FormScorer pipeline end-to-end
+    and returns per-rep scores, detected violations, and pipeline stats.
+    """
+    # -- 1. Validate enums up-front (fast fail, no upload read) ------------
+    if exercise not in app_config.EXERCISES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid exercise {exercise!r}. Must be one of {app_config.EXERCISES}",
+        )
+    if age_group not in app_config.AGE_GROUPS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid age_group {age_group!r}. Must be one of {app_config.AGE_GROUPS}",
+        )
+
+    # -- 2. Validate content-type (reject non-video uploads early) ---------
+    content_type = (video.content_type or "").lower()
+    if content_type and not content_type.startswith("video/"):
+        raise HTTPException(
+            status_code=415,
+            detail=f"Unsupported media type {video.content_type!r} — expected video/*",
+        )
+
+    # -- 3. Read body & enforce size cap -----------------------------------
+    video_bytes = await video.read()
+    if not video_bytes:
+        raise HTTPException(status_code=400, detail="Empty video upload")
+    if len(video_bytes) > MAX_VIDEO_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=(
+                f"Video exceeds {MAX_VIDEO_BYTES // (1024 * 1024)} MB limit "
+                f"({len(video_bytes) / (1024 * 1024):.1f} MB received)"
+            ),
+        )
+
+    # -- 4. Run the pipeline ----------------------------------------------
+    start_monotonic = time.monotonic()
+    rep_results: List[RepResult] = []
+    frames_processed = 0
+    frames_with_landmarks = 0
+
+    try:
+        with VideoProcessor(exercise) as vp:
+            counter = make_rep_counter(exercise, age_group)
+            scorer = FormScorer(exercise, age_group)
+
+            for pf in vp.process_bytes(video_bytes):
+                frames_processed += 1
+                if not pf.landmarks_detected:
+                    continue
+                frames_with_landmarks += 1
+                event = counter.update_angle(
+                    pf.primary_angle,
+                    pf.timestamp,
+                    features=pf.features,
+                )
+                if event is not None:
+                    score = scorer.score(event)
+                    rep_results.append(_to_rep_result(event, score))
+    except (VideoDecodeError, NoFramesExtractedError) as exc:
+        # Bad input, not a server fault — surface the reason.
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except UnsupportedExerciseError as exc:
+        # Defensive: enum check above should prevent this, but double-guard.
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception(
+            "Unhandled error in /api/score (exercise=%s, age_group=%s)",
+            exercise, age_group,
+        )
+        raise HTTPException(status_code=500, detail="Internal processing error")
+
+    processing_time_s = time.monotonic() - start_monotonic
+
+    # -- 5. Aggregate --------------------------------------------------------
+    valid_scores = [r.final_score for r in rep_results if r.final_score is not None]
+    average_score = (sum(valid_scores) / len(valid_scores)) if valid_scores else None
+
+    logger.info(
+        "Scored video: exercise=%s, age_group=%s, reps=%d, frames=%d/%d, time=%.2fs",
+        exercise, age_group, len(rep_results),
+        frames_with_landmarks, frames_processed, processing_time_s,
+    )
+
+    return ScoreResponse(
+        exercise=exercise,
+        age_group=age_group,
+        total_reps=len(rep_results),
+        average_score=average_score,
+        frames_processed=frames_processed,
+        frames_with_landmarks=frames_with_landmarks,
+        processing_time_s=processing_time_s,
+        reps=rep_results,
+    )
 
 @app.get("/api/exercises")
 async def get_exercises():
