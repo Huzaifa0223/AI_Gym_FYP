@@ -1,3 +1,0 @@
-# Check if training data file is being created/growing
-Get-ChildItem "e:\FYP 1\AI_Gym_FYP\data\training\back*.csv" -ErrorAction SilentlyContinue | 
-  ForEach-Object { Write-Host "$($_.Name) : $([math]::Round($_.Length/1MB,2)) MB" }
