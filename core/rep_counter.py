@@ -51,6 +51,19 @@ class RepState(Enum):
 
 
 @dataclass(frozen=True)
+class FrameFeatures:
+    """Per-frame feature vector matching the trained model schema.
+
+    The three columns correspond to ``feature_cols`` stored in every
+    trained ``.pkl`` model: ``['primary_angle', 'secondary_angle',
+    'tertiary_angle']``.
+    """
+    primary_angle: float
+    secondary_angle: float
+    tertiary_angle: float
+
+
+@dataclass(frozen=True)
 class RepEvent:
     """Immutable record emitted when a single repetition completes.
 
@@ -74,6 +87,7 @@ class RepEvent:
     trajectory: list[float]
     exercise_name: str
     age_group: str
+    feature_history: tuple[FrameFeatures, ...] = ()
 
 
 # ---------------------------------------------------------------------------
@@ -107,6 +121,7 @@ class BaseRepCounter(ABC):
         self._trajectory: list[float] = []
         self._peak_angle: float = 0.0
         self._trough_angle: float = 360.0
+        self._feature_buffer: list[FrameFeatures] = []
 
     # -- Public properties ---------------------------------------------------
 
@@ -136,26 +151,45 @@ class BaseRepCounter(ABC):
 
     # -- Concrete API --------------------------------------------------------
 
-    def update(self, pose_landmarks: list, timestamp: float) -> RepEvent | None:
+    def update(
+        self,
+        pose_landmarks: list,
+        timestamp: float,
+        *,
+        features: FrameFeatures | None = None,
+    ) -> RepEvent | None:
         """Feed one frame into the FSM.
 
         Args:
             pose_landmarks: Full MediaPipe landmark list for this frame.
             timestamp:      Monotonic time of this frame (seconds).
+            features:       Optional per-frame feature vector.
 
         Returns:
             A :class:`RepEvent` on the exact frame that closes a rep, or
             ``None`` otherwise.
         """
         angle = self.extract_primary_angle(pose_landmarks)
-        return self._advance_fsm(angle, timestamp)
+        return self._advance_fsm(angle, timestamp, features=features)
 
-    def update_angle(self, angle: float, timestamp: float) -> RepEvent | None:
+    def update_angle(
+        self,
+        angle: float,
+        timestamp: float,
+        *,
+        features: FrameFeatures | None = None,
+    ) -> RepEvent | None:
         """Feed a pre-computed angle into the FSM (useful for testing).
 
         Identical to :meth:`update` but skips landmark extraction.
+
+        Args:
+            angle:     Primary joint angle in degrees.
+            timestamp: Monotonic time of this frame (seconds).
+            features:  Optional per-frame feature vector.  When provided,
+                       accumulated into the rep's ``feature_history``.
         """
-        return self._advance_fsm(angle, timestamp)
+        return self._advance_fsm(angle, timestamp, features=features)
 
     def reset(self) -> None:
         """Zero the rep count and restore the FSM to IDLE."""
@@ -165,10 +199,17 @@ class BaseRepCounter(ABC):
         self._trajectory = []
         self._peak_angle = 0.0
         self._trough_angle = 360.0
+        self._feature_buffer = []
 
     # -- FSM internals -------------------------------------------------------
 
-    def _advance_fsm(self, angle: float, timestamp: float) -> RepEvent | None:
+    def _advance_fsm(
+        self,
+        angle: float,
+        timestamp: float,
+        *,
+        features: FrameFeatures | None = None,
+    ) -> RepEvent | None:
         """Run one FSM tick and return a RepEvent if a rep just closed."""
         cfg = self._config
         top_enter = cfg.top_threshold - cfg.hysteresis
@@ -179,27 +220,27 @@ class BaseRepCounter(ABC):
         # -- IDLE: waiting for the first downward movement -------------------
         if state is RepState.IDLE:
             if angle < top_enter:
-                self._begin_rep(angle, timestamp)
+                self._begin_rep(angle, timestamp, features)
                 self._state = RepState.DESCENDING
                 logger.debug("IDLE -> DESCENDING @ %.1f deg", angle)
 
         # -- DESCENDING: angle is falling toward the bottom ------------------
         elif state is RepState.DESCENDING:
-            self._record_sample(angle)
+            self._record_sample(angle, features)
             if angle <= bottom_enter:
                 self._state = RepState.BOTTOM
                 logger.debug("DESCENDING -> BOTTOM @ %.1f deg", angle)
 
         # -- BOTTOM: angle is at or below the bottom threshold ---------------
         elif state is RepState.BOTTOM:
-            self._record_sample(angle)
+            self._record_sample(angle, features)
             if angle > bottom_enter:
                 self._state = RepState.ASCENDING
                 logger.debug("BOTTOM -> ASCENDING @ %.1f deg", angle)
 
         # -- ASCENDING: angle is rising toward the top -----------------------
         elif state is RepState.ASCENDING:
-            self._record_sample(angle)
+            self._record_sample(angle, features)
             if angle >= top_enter:
                 event = self._try_close_rep(timestamp)
                 self._state = RepState.TOP
@@ -209,26 +250,38 @@ class BaseRepCounter(ABC):
         # -- TOP: waiting for the next descent or staying at top -------------
         elif state is RepState.TOP:
             if angle < top_enter:
-                self._begin_rep(angle, timestamp)
+                self._begin_rep(angle, timestamp, features)
                 self._state = RepState.DESCENDING
                 logger.debug("TOP -> DESCENDING @ %.1f deg", angle)
 
         return None
 
-    def _begin_rep(self, angle: float, timestamp: float) -> None:
+    def _begin_rep(
+        self,
+        angle: float,
+        timestamp: float,
+        features: FrameFeatures | None = None,
+    ) -> None:
         """Initialise accumulators for a new rep."""
         self._rep_start_ts = timestamp
         self._trajectory = [angle]
         self._peak_angle = angle
         self._trough_angle = angle
+        self._feature_buffer = [features] if features is not None else []
 
-    def _record_sample(self, angle: float) -> None:
+    def _record_sample(
+        self,
+        angle: float,
+        features: FrameFeatures | None = None,
+    ) -> None:
         """Append an angle sample and update peak/trough."""
         self._trajectory.append(angle)
         if angle > self._peak_angle:
             self._peak_angle = angle
         if angle < self._trough_angle:
             self._trough_angle = angle
+        if features is not None:
+            self._feature_buffer.append(features)
 
     def _try_close_rep(self, end_ts: float) -> RepEvent | None:
         """Validate duration and emit a RepEvent, or discard the rep."""
@@ -256,6 +309,7 @@ class BaseRepCounter(ABC):
             trajectory=list(self._trajectory),
             exercise_name=self._exercise_name,
             age_group=self._age_group,
+            feature_history=tuple(self._feature_buffer),
         )
         logger.info("Rep %d closed: %.2fs, peak=%.1f, trough=%.1f",
                      event.rep_number, event.duration_s,
