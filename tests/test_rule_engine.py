@@ -11,7 +11,9 @@ import pytest
 
 from core.rep_counter import RepEvent
 from core.rule_engine import (
+    BackRuleEngine,
     BicepRuleEngine,
+    ChestRuleEngine,
     NullRuleEngine,
     make_rule_engine,
 )
@@ -139,6 +141,11 @@ class TestFactory:
     def test_bicep_returns_bicep_engine(self) -> None:
         assert isinstance(make_rule_engine('bicep'), BicepRuleEngine)
 
-    @pytest.mark.parametrize("exercise", ['back', 'chest'])
-    def test_other_returns_null_engine(self, exercise: str) -> None:
-        assert isinstance(make_rule_engine(exercise), NullRuleEngine)
+    def test_back_returns_back_engine(self) -> None:
+        assert isinstance(make_rule_engine('back'), BackRuleEngine)
+
+    def test_chest_returns_chest_engine(self) -> None:
+        assert isinstance(make_rule_engine('chest'), ChestRuleEngine)
+
+    def test_unknown_returns_null_engine(self) -> None:
+        assert isinstance(make_rule_engine('deadlift'), NullRuleEngine)

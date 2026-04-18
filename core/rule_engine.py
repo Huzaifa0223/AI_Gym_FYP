@@ -157,6 +157,66 @@ class BaseRuleEngine(ABC):
             )
         return None
 
+    @staticmethod
+    def _check_tempo_symmetry(
+        rep: RepEvent,
+        *,
+        min_ratio: float = 0.7,
+        max_ratio: float = 1.5,
+    ) -> FormViolation | None:
+        """Check that descending and ascending phases have similar duration.
+
+        Under the uniform-frame-rate assumption (~30 fps from MediaPipe),
+        the fraction of trajectory samples before the trough approximates
+        the eccentric-phase time fraction.  Schoenfeld (2010) and NSCA
+        guidelines recommend controlled eccentric and concentric phases
+        with roughly symmetric timing.
+
+        Args:
+            rep:       Completed RepEvent.
+            min_ratio: Minimum acceptable descending/ascending sample ratio.
+            max_ratio: Maximum acceptable descending/ascending sample ratio.
+
+        Returns:
+            A ``'major'`` violation if the phase ratio is outside bounds,
+            else ``None``.
+        """
+        if len(rep.trajectory) < 4:
+            return None
+
+        trough_idx = int(np.argmin(rep.trajectory))
+        descending_samples = trough_idx + 1
+        ascending_samples = len(rep.trajectory) - trough_idx
+
+        if descending_samples < 2 or ascending_samples < 2:
+            return None
+
+        ratio = descending_samples / ascending_samples
+
+        if ratio < min_ratio:
+            return FormViolation(
+                name='tempo_asymmetry',
+                severity='major',
+                message=(
+                    f"Eccentric phase too fast (ratio={ratio:.2f} < {min_ratio:.2f}) "
+                    f"— slow the lowering phase"
+                ),
+                frame_range=None,
+                penalty=15.0,
+            )
+        if ratio > max_ratio:
+            return FormViolation(
+                name='tempo_asymmetry',
+                severity='major',
+                message=(
+                    f"Concentric phase too fast (ratio={ratio:.2f} > {max_ratio:.2f}) "
+                    f"— control the lifting phase"
+                ),
+                frame_range=None,
+                penalty=15.0,
+            )
+        return None
+
 
 # ---------------------------------------------------------------------------
 # Concrete engines
@@ -182,11 +242,221 @@ class BicepRuleEngine(BaseRuleEngine):
         return violations
 
 
-class NullRuleEngine(BaseRuleEngine):
-    """No-op rule engine for exercises without biomechanics rules yet.
+class BackRuleEngine(BaseRuleEngine):
+    """Rule engine for back rows (bent-over rows, cable rows).
 
-    Always returns an empty violation list.  Used for ``back`` and ``chest``
-    until exercise-specific rules are implemented.
+    Applies universal ROM, speed, tempo, and symmetry checks plus two
+    back-specific rules that inspect the secondary angle
+    (hip→shoulder→elbow) from ``feature_history``.
+    """
+
+    def evaluate(self, rep: RepEvent) -> list[FormViolation]:
+        violations: list[FormViolation] = []
+        for check in (
+            self._check_rom(rep, min_range=80.0),
+            self._check_speed(rep, min_s=1.0, max_s=5.0),
+            self._check_tempo_stability(rep, max_cv=0.6),
+            self._check_tempo_symmetry(rep),
+            self._check_scapular_retraction(rep),
+            self._check_torso_stability(rep),
+        ):
+            if check is not None:
+                violations.append(check)
+        return violations
+
+    @staticmethod
+    def _check_scapular_retraction(
+        rep: RepEvent,
+        max_retraction_angle: float = 50.0,
+    ) -> FormViolation | None:
+        """Check that scapulae retract sufficiently during the pull.
+
+        The secondary angle (hip→shoulder→elbow) should drop below
+        *max_retraction_angle* at peak contraction, indicating the elbow
+        has moved behind the torso line and the scapulae are squeezed
+        together.  If the minimum secondary angle stays above this
+        threshold, the pull is incomplete.
+
+        Args:
+            rep:                  Completed RepEvent.
+            max_retraction_angle: Maximum acceptable minimum secondary angle.
+
+        Returns:
+            A ``'major'`` violation if retraction is insufficient,
+            else ``None``.
+        """
+        if not rep.feature_history:
+            return None
+
+        secondary_angles = np.array(
+            [f.secondary_angle for f in rep.feature_history]
+        )
+        min_secondary = float(np.min(secondary_angles))
+
+        if min_secondary > max_retraction_angle:
+            return FormViolation(
+                name='scapular_retraction',
+                severity='major',
+                message=(
+                    f"Incomplete scapular retraction — secondary angle "
+                    f"never dropped below {max_retraction_angle:.0f}° "
+                    f"(min was {min_secondary:.0f}°)"
+                ),
+                frame_range=None,
+                penalty=15.0,
+            )
+        return None
+
+    @staticmethod
+    def _check_torso_stability(
+        rep: RepEvent,
+        max_std: float = 15.0,
+    ) -> FormViolation | None:
+        """Check that the torso stays stable during the row.
+
+        High standard deviation of the secondary angle (hip→shoulder→elbow)
+        across the rep indicates torso kipping or momentum-cheating rather
+        than isolating the back muscles.
+
+        Args:
+            rep:     Completed RepEvent.
+            max_std: Maximum acceptable standard deviation (degrees).
+
+        Returns:
+            A ``'major'`` violation if torso is unstable, else ``None``.
+        """
+        if not rep.feature_history:
+            return None
+
+        secondary_angles = np.array(
+            [f.secondary_angle for f in rep.feature_history]
+        )
+        std = float(np.std(secondary_angles))
+
+        if std > max_std:
+            return FormViolation(
+                name='torso_unstable',
+                severity='major',
+                message=(
+                    f"Torso kipping detected — secondary angle std "
+                    f"{std:.1f}° exceeds {max_std:.0f}° limit"
+                ),
+                frame_range=None,
+                penalty=15.0,
+            )
+        return None
+
+
+class ChestRuleEngine(BaseRuleEngine):
+    """Rule engine for push-ups and chest press movements.
+
+    Applies universal ROM (60° minimum for push-ups), speed, tempo, and
+    symmetry checks plus two chest-specific rules that inspect the
+    secondary angle (shoulder→hip→knee for plank integrity) and tertiary
+    angle (hip→knee→ankle for leg alignment) from ``feature_history``.
+    """
+
+    def evaluate(self, rep: RepEvent) -> list[FormViolation]:
+        violations: list[FormViolation] = []
+        for check in (
+            self._check_rom(rep, min_range=60.0),
+            self._check_speed(rep, min_s=0.8, max_s=4.0),
+            self._check_tempo_stability(rep, max_cv=0.6),
+            self._check_tempo_symmetry(rep),
+            self._check_plank_integrity(rep),
+            self._check_leg_alignment(rep),
+        ):
+            if check is not None:
+                violations.append(check)
+        return violations
+
+    @staticmethod
+    def _check_plank_integrity(
+        rep: RepEvent,
+        min_mean_angle: float = 165.0,
+    ) -> FormViolation | None:
+        """Check that the body maintains a straight plank throughout the rep.
+
+        The secondary angle (shoulder→hip→knee) should stay near 180° for
+        a proper plank.  Any deviation — either hip sag (angle decreases)
+        or hip pike (angle also decreases from the straight-line interior
+        angle) — reduces this angle below *min_mean_angle*.
+
+        Args:
+            rep:            Completed RepEvent.
+            min_mean_angle: Minimum acceptable mean secondary angle.
+
+        Returns:
+            A ``'major'`` violation if plank breaks, else ``None``.
+        """
+        if not rep.feature_history:
+            return None
+
+        secondary_angles = np.array(
+            [f.secondary_angle for f in rep.feature_history]
+        )
+        mean_angle = float(np.mean(secondary_angles))
+
+        if mean_angle < min_mean_angle:
+            return FormViolation(
+                name='plank_broken',
+                severity='major',
+                message=(
+                    f"Plank integrity lost — mean body angle "
+                    f"{mean_angle:.0f}° is below {min_mean_angle:.0f}° "
+                    f"(hip sag or pike detected)"
+                ),
+                frame_range=None,
+                penalty=15.0,
+            )
+        return None
+
+    @staticmethod
+    def _check_leg_alignment(
+        rep: RepEvent,
+        min_mean_angle: float = 170.0,
+    ) -> FormViolation | None:
+        """Check that legs stay straight during push-ups.
+
+        The tertiary angle (hip→knee→ankle) should stay near 180° when
+        the legs are locked.  A mean below *min_mean_angle* indicates
+        bent knees, which reduces push-up effectiveness and shifts load
+        off the chest.
+
+        Args:
+            rep:            Completed RepEvent.
+            min_mean_angle: Minimum acceptable mean tertiary angle.
+
+        Returns:
+            A ``'major'`` violation if knees are bent, else ``None``.
+        """
+        if not rep.feature_history:
+            return None
+
+        tertiary_angles = np.array(
+            [f.tertiary_angle for f in rep.feature_history]
+        )
+        mean_angle = float(np.mean(tertiary_angles))
+
+        if mean_angle < min_mean_angle:
+            return FormViolation(
+                name='leg_bent',
+                severity='major',
+                message=(
+                    f"Knees bent — mean leg angle {mean_angle:.0f}° is "
+                    f"below {min_mean_angle:.0f}° (lock knees straight)"
+                ),
+                frame_range=None,
+                penalty=15.0,
+            )
+        return None
+
+
+class NullRuleEngine(BaseRuleEngine):
+    """No-op rule engine for exercises without biomechanics rules.
+
+    Always returns an empty violation list.  Used as fallback for
+    unknown exercise types.
     """
 
     def evaluate(self, rep: RepEvent) -> list[FormViolation]:
@@ -199,6 +469,8 @@ class NullRuleEngine(BaseRuleEngine):
 
 _ENGINE_CLASSES: dict[str, type[BaseRuleEngine]] = {
     'bicep': BicepRuleEngine,
+    'back': BackRuleEngine,
+    'chest': ChestRuleEngine,
 }
 
 
@@ -209,16 +481,15 @@ def make_rule_engine(exercise: str) -> BaseRuleEngine:
         exercise: Exercise key (``'bicep'``, ``'back'``, ``'chest'``).
 
     Returns:
-        A :class:`BicepRuleEngine` for ``'bicep'``, or a
-        :class:`NullRuleEngine` for exercises without rules yet.
+        The matching rule engine, or :class:`NullRuleEngine` for
+        unrecognised exercises.
     """
     cls = _ENGINE_CLASSES.get(exercise)
     if cls is not None:
         return cls()
 
     logger.info(
-        "No rule engine for %r — using NullRuleEngine (intentional: "
-        "back/chest biomechanics rules not yet implemented)",
+        "No rule engine for %r — using NullRuleEngine",
         exercise,
     )
     return NullRuleEngine()
