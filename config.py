@@ -3,6 +3,9 @@ Centralized configuration for AI Gym FYP.
 All model paths, exercise names, and age groups live here.
 Import this instead of hardcoding paths across files.
 """
+from __future__ import annotations
+
+from dataclasses import dataclass
 from pathlib import Path
 
 # ── Directories ──────────────────────────────────────────────────────────────
@@ -63,3 +66,46 @@ def cleanup_all_calibration_files(keep: int = CALIBRATION_MAX_FILES) -> int:
     for f in to_delete:
         f.unlink()
     return len(to_delete)
+
+
+# ── Rep Counter FSM calibration ─────────────────────────────────────────────
+
+@dataclass(frozen=True)
+class RepCounterConfig:
+    """Per-exercise thresholds that drive the rep-counter finite state machine."""
+    top_threshold: float          # angle (deg) considered "top" of movement
+    bottom_threshold: float       # angle (deg) considered "bottom" of movement
+    hysteresis: float             # dead-band width (deg) to suppress jitter
+    min_rep_duration_s: float     # reps shorter than this are rejected
+    max_rep_duration_s: float     # reps longer than this are rejected
+
+
+REP_COUNTER_CONFIGS: dict[str, RepCounterConfig] = {
+    # Bicep curl — primary angle: shoulder(12)→elbow(14)→wrist(16)
+    # Extended arm ≈ 160-170°, fully curled ≈ 30-50°
+    'bicep': RepCounterConfig(
+        top_threshold=140.0,
+        bottom_threshold=60.0,
+        hysteresis=10.0,
+        min_rep_duration_s=0.8,
+        max_rep_duration_s=8.0,
+    ),
+    # Back row — primary angle: shoulder(12)→elbow(14)→wrist(16)
+    # Arm extended forward ≈ 150-170°, pulled back ≈ 40-60°
+    'back': RepCounterConfig(
+        top_threshold=140.0,
+        bottom_threshold=60.0,
+        hysteresis=10.0,
+        min_rep_duration_s=0.8,
+        max_rep_duration_s=8.0,
+    ),
+    # Push-up — primary angle: shoulder(12)→elbow(14)→wrist(16)
+    # Arms locked out ≈ 155-170°, bottom position ≈ 60-90°
+    'chest': RepCounterConfig(
+        top_threshold=140.0,
+        bottom_threshold=80.0,
+        hysteresis=10.0,
+        min_rep_duration_s=0.8,
+        max_rep_duration_s=8.0,
+    ),
+}
