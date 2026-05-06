@@ -203,7 +203,38 @@ The system has three layers that talk about exercises in different vocabularies.
 When adding a new exercise, add it to the layer-3 keys *and* to
 `BODY_PART_TO_EXERCISE` in one commit.
 
-## 12. Known asymmetries (3-pillar migration)
+## 12. Pipeline composition (3-pillar wiring, post-Stage 5c)
+
+The video-scoring path composes per-stage components in `core/`:
+
+```
+POST /api/score
+    └── ScoringPipeline (core/pipeline.py)
+        ├── ThresholdProvider.load(exercise)         # 422 if missing
+        ├── VideoProcessor.process_bytes()           # frames → features
+        ├── make_rep_counter()                       # FSM rep detection
+        ├── FormScorer.score(rep)                    # per-rep ML + rules
+        ├── FormQualityScorer.score(rep)             # CNN+LSTM (null seam)
+        └── score_aggregator.aggregate(...)          # → HeadlineScore
+```
+
+The pipeline runs synchronously inside an executor thread
+(`loop.run_in_executor`) so the FastAPI event loop stays free for the
+1 Hz YOLOv8 equipment task. `LatestFrameBuffer` is teed from
+`POST /api/process-frame` so the equipment task has live frames to
+process. `app.state` carries the long-lived holders / detector / task /
+provider / scorer.
+
+Out-of-band components:
+
+* **YOLOv8 equipment detector** — async background task at 1 Hz, reads
+  the latest frame from `LatestFrameBuffer`, writes `EquipmentState` to
+  the holder. `GET /api/equipment` reads the holder snapshot.
+* **Reference skeleton** — static JSON at
+  `exercises/<exercise>/reference_skeleton.json` served by
+  `GET /api/reference/{exercise_id}` for the React ghost-overlay.
+
+## 13. Known asymmetries (3-pillar migration)
 
 The 3-pillar pipeline (`docs/architecture_3pillar.md`) introduces a deliberate
 inconsistency that contributors must understand before changing the scoring path:
