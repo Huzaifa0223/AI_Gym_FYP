@@ -1,0 +1,15 @@
+{
+  "exercise": "bicep_curl",
+  "rom_band": [0.0, 0.0],
+  "speed_band": [0.0, 0.0],
+  "tempo_stability_max_cv": 0.0,
+  "tempo_symmetry_min_ratio": 0.0,
+  "exercise_specific": {},
+  "sources": {
+    "rom_band": "derived_from_video",
+    "speed_band": "derived_from_video",
+    "tempo_stability_max_cv": "derived_from_video",
+    "tempo_symmetry_min_ratio": "derived_from_video"
+  },
+  "_seed_note": "Placeholder seed. All values are zeroed; the calibrator overwrites this file at runtime via training/data_collector.py. Source tagging assumes video-derived values; NSCA/ACSM grounding queued in TODO.md before viva."
+}

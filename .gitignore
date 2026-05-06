@@ -41,3 +41,7 @@ workout_*.json
 skeleton_screenshot_*.jpg
 test_visualization.jpg
 Untitled*.ipynb
+
+# Stage 3 calibrator runtime outputs (committed seed_thresholds.json stays)
+exercises/*/heuristic_thresholds.json
+exercises/*/calibration_log.json
