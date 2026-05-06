@@ -10,9 +10,10 @@ once and scores an entire :class:`~core.rep_counter.RepEvent` by averaging
 from __future__ import annotations
 
 import logging
-import pickle
 from pathlib import Path
+from pickle import UnpicklingError
 
+import joblib
 import numpy as np
 
 from config import model_path
@@ -119,9 +120,8 @@ class MLAggregator:
             raise ModelNotAvailableError(f"Model file not found: {path}")
 
         try:
-            with open(path, 'rb') as fh:
-                raw = pickle.load(fh)
-        except (pickle.UnpicklingError, EOFError, OSError) as exc:
+            raw = joblib.load(path)
+        except (UnpicklingError, EOFError, OSError, ValueError) as exc:
             raise ModelNotAvailableError(
                 f"Failed to load model from {path}: {exc}"
             ) from exc

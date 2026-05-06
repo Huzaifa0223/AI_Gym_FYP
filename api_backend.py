@@ -7,7 +7,7 @@ from fastapi import FastAPI, File, UploadFile, HTTPException, Form, Request, sta
 from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List, Dict, Literal
 import cv2
 import math
@@ -73,8 +73,9 @@ class ExerciseRequest(BaseModel):
     auto_detect: bool = Field(True, description="Automatically detect exercise type")
     session_id: Optional[str] = Field(None, description="Optional session ID for state continuity")
     
-    @validator('frame_data')
-    def validate_frame_size(cls, v):
+    @field_validator('frame_data')
+    @classmethod
+    def validate_frame_size(cls, v: str) -> str:
         # Rough size check (base64 is ~4/3 original size)
         size_mb = len(v) * 0.75 / (1024 * 1024)
         if size_mb > MAX_FRAME_SIZE_MB:

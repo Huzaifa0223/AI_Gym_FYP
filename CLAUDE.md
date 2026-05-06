@@ -27,6 +27,10 @@ within a strict latency budget.
 | Data validation  | Pydantic v2                           | 2.5.x    |
 | CV loop (desktop)| OpenCV window via `main.py`           | —        |
 | Dev toolchain    | Claude Code native binary             | latest   |
+| Object detection | YOLOv8-nano (ultralytics)             | 8.3.x    |
+
+> Object detection is added by Stage 3 of the 3-pillar pipeline. Weights live at
+> `models/yolov8n.pt` and are gitignored — fetch with `scripts/fetch_yolo_weights.py`.
 
 ### FORBIDDEN technologies (never introduce)
 
@@ -166,3 +170,26 @@ claude --version
 5. Hard-code absolute file paths — always use `pathlib.Path` relative to `config.BASE_DIR`.
 6. Commit trained `.pkl` files or raw video data to git.
 7. Bypass `.pylintrc` rules with inline `# pylint: disable` without a comment explaining why.
+
+---
+
+## 11. Known asymmetries (3-pillar migration)
+
+The 3-pillar pipeline (`docs/architecture_3pillar.md`) introduces a deliberate
+inconsistency that contributors must understand before changing the scoring path:
+
+- **Existing RandomForest models stay age-group-keyed.** They are loaded as
+  `data/models/{exercise}_{age_group}.pkl` and the API maps numeric age →
+  `children` / `adult` / `senior` before lookup. These models are **not**
+  retrained for this FYP — the cost/benefit is wrong for the timeline.
+- **New components use body-segment normalization instead.** The CNN+LSTM form
+  scorer and the heuristic threshold extractor consume landmarks already
+  rescaled to body-segment-length units, so they are demographic-blind by
+  construction.
+- **The `ScoreAggregator` weights both correctly.** When the CNN+LSTM is
+  available the weights are `rules 0.4 / RF 0.3 / NN 0.3`; otherwise
+  `rules 0.6 / RF 0.4`. See `docs/architecture_3pillar.md` §3 and §6.
+
+This asymmetry is documented in the FYP report as a defensible incremental
+migration. Do not "harmonize" by retraining the RF models or by removing the
+age-group split unless the project explicitly schedules it.
