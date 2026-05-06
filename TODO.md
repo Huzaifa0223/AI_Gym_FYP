@@ -38,6 +38,29 @@
   - The `ALLOWED_THRESHOLD_SOURCES` allowlist in `core/schemas.py` already
     accepts these three values — no schema change required.
 
+## Reference Skeleton — Hand-author Pose Keyframes (VIVA-BLOCKING)
+- **Task:** Replace the zeroed placeholder content of
+  `exercises/bicep_curl/reference_skeleton.json` (and add equivalents for
+  `bent_over_row` and `push_up`) with hand-authored MediaPipe pose
+  keyframes — one per non-IDLE FSM phase (DESCENDING / BOTTOM /
+  ASCENDING / TOP).
+- **Context:** Stage 5c (`api_backend.py:get_reference_skeleton` +
+  `core/rep_counter.RepState`) ships the schema and the GET endpoint.
+  The frontend's ghost-overlay renderer reads this JSON to draw the
+  reference pose. The placeholder JSON has the right shape but every
+  landmark is `(0, 0, 0)` and every visibility is `0.0`.
+- **Priority:** **Viva-blocking** — overlay rendering is dead until this
+  ships, even though the API layer is wired correctly.
+- **Acceptance criteria:**
+  - 33-landmark `(x, y, z)` arrays per keyframe in MediaPipe normalised
+    coords (`[0, 1]` for x/y; z is depth-relative).
+  - Visibility values reflect which body parts are reliably observable
+    in that phase (e.g. occluded shoulder during a deep curl bottom →
+    lower visibility).
+  - Source: either trace from a high-quality demo video frame-by-frame,
+    or generate from a posed model. Document the source in the JSON's
+    `_note` field.
+
 ## Equipment Detector — Fine-tune YOLOv8-nano on Gym Dataset (VIVA-BLOCKING)
 - **Task:** Replace stock COCO weights with a YOLOv8-nano model fine-tuned on
   a gym-equipment dataset, OR drop in a pre-trained gym-equipment checkpoint.

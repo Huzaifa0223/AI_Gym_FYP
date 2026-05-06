@@ -3,12 +3,15 @@ FastAPI Backend for AI Gym - Production Ready
 Provides REST API endpoints for exercise detection and tracking
 Supports multiple exercises and age groups
 """
+import asyncio
+import itertools
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form, Request, status
 from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field, field_validator
-from typing import Optional, List, Dict, Literal
+from typing import AsyncIterator, Optional, List, Dict, Literal
 import cv2
 import math
 import mediapipe as mp
@@ -35,10 +38,27 @@ from core.exercise_mapping import BODY_PART_TO_EXERCISE
 
 # Video-based scoring pipeline
 import config as app_config
+from core.cnn_lstm_scorer import NullFormQualityScorer
+from core.equipment_pipeline import (
+    EquipmentStateHolder,
+    run_equipment_detection_loop,
+)
 from core.form_scorer import FormScore, FormScorer
+from core.frame_buffer import LatestFrameBuffer
+from core.object_detector import (
+    EquipmentDetector,
+    StubDetector,
+    Yolov8NanoDetector,
+)
+from core.pipeline import ScoringPipeline
 from core.rep_counter import RepEvent, make_rep_counter
 from core.rule_engine import FormViolation
 from core.schemas import HeadlineScore
+from core.threshold_provider import (
+    MalformedThresholdsError,
+    ThresholdProvider,
+    ThresholdsNotFoundError,
+)
 from core.video_processor import (
     NoFramesExtractedError,
     UnsupportedExerciseError,
@@ -189,12 +209,97 @@ def _to_rep_result(event: RepEvent, score: FormScore) -> RepResult:
     )
 
 # ===========================================
+# LIFESPAN — startup / shutdown wiring (Stage 5c)
+# ===========================================
+#
+# Initialises long-lived 3-pillar pipeline state on app.state:
+#   * frame_buffer       — LatestFrameBuffer; populated by /api/process-frame,
+#                          consumed by the equipment background task.
+#   * frame_counter      — itertools.count() yielding monotonic frame ids.
+#   * equipment_holder   — EquipmentStateHolder; written by the loop, read by
+#                          GET /api/equipment.
+#   * equipment_detector — EquipmentDetector wrapping Yolov8NanoDetector when
+#                          weights are present, or StubDetector(()) as a safe
+#                          fallback so the endpoint never 500s.
+#   * equipment_task     — asyncio task running run_equipment_detection_loop
+#                          at 1 Hz.
+#   * cnn_lstm_scorer    — NullFormQualityScorer (returns None until a trained
+#                          CNN+LSTM model lands; that work is post-5c).
+#   * threshold_provider — Stage 5b ThresholdProvider with the production
+#                          exercises/ directory.
+#
+# Shutdown sets the stop event and awaits the task with a timeout so the
+# TestClient context manager exits promptly during pytest runs.
+
+YOLO_WEIGHTS_PATH = Path("models/yolov8n.pt")
+EQUIPMENT_TASK_SHUTDOWN_TIMEOUT_S = 2.0
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Initialise app.state on startup; tear it down on shutdown."""
+    # -- Buffers + monotonic frame counter ----------------------------------
+    app.state.frame_buffer = LatestFrameBuffer()
+    app.state.frame_counter = itertools.count()
+
+    # -- Equipment detector (real if weights present, stub otherwise) -------
+    if YOLO_WEIGHTS_PATH.exists():
+        app.state.equipment_detector = EquipmentDetector(
+            Yolov8NanoDetector(weights_path=YOLO_WEIGHTS_PATH),
+        )
+    else:
+        logger.warning(
+            "YOLOv8 weights not found at %s — running with StubDetector "
+            "(no detections). Run `python -m scripts.fetch_yolo_weights`.",
+            YOLO_WEIGHTS_PATH,
+        )
+        app.state.equipment_detector = EquipmentDetector(StubDetector())
+
+    # -- Equipment background task ------------------------------------------
+    app.state.equipment_holder = EquipmentStateHolder()
+    app.state.equipment_stop = asyncio.Event()
+
+    def _frame_source():
+        return app.state.frame_buffer.get()
+
+    app.state.equipment_task = asyncio.create_task(
+        run_equipment_detection_loop(
+            app.state.equipment_holder,
+            app.state.equipment_detector,
+            _frame_source,
+            app.state.equipment_stop,
+            target_hz=1.0,
+        )
+    )
+
+    # -- Pipeline-side singletons -------------------------------------------
+    app.state.cnn_lstm_scorer = NullFormQualityScorer()
+    app.state.threshold_provider = ThresholdProvider()
+
+    try:
+        yield
+    finally:
+        # Shutdown: signal the equipment loop and wait for clean exit.
+        app.state.equipment_stop.set()
+        try:
+            await asyncio.wait_for(
+                app.state.equipment_task,
+                timeout=EQUIPMENT_TASK_SHUTDOWN_TIMEOUT_S,
+            )
+        except asyncio.TimeoutError:
+            logger.warning("Equipment task did not stop within %.1fs; cancelling",
+                           EQUIPMENT_TASK_SHUTDOWN_TIMEOUT_S)
+            app.state.equipment_task.cancel()
+
+
+# ===========================================
 # FASTAPI APP
 # ===========================================
 app = FastAPI(
     title="AI Gym - Exercise Detection API",
     description="Real-time exercise form detection and rep counting",
-    version="2.0.0"
+    version="2.0.0",
+    lifespan=lifespan,
 )
 
 # CORS configuration for frontend integration
@@ -353,9 +458,22 @@ async def process_frame(request: ExerciseRequest):
         height, width = frame.shape[:2]
         if height > MAX_IMAGE_DIMENSION or width > MAX_IMAGE_DIMENSION:
             raise HTTPException(
-                status_code=400, 
+                status_code=400,
                 detail=f"Image dimensions {width}x{height} exceed maximum {MAX_IMAGE_DIMENSION}px"
             )
+
+        # Tee the decoded frame into the equipment task's input buffer so
+        # the background YOLOv8 loop has fresh frames to detect on. Cheap
+        # reference write; defensive `hasattr` guard handles edge cases
+        # where lifespan setup was bypassed (e.g. mid-reload).
+        if hasattr(app.state, "frame_buffer"):
+            try:
+                _frame_id = next(app.state.frame_counter)
+                app.state.frame_buffer.set(
+                    frame, _frame_id, int(time.time() * 1000),
+                )
+            except Exception:  # pylint: disable=broad-except
+                logger.exception("frame_buffer.set raised; continuing")
         
         # Process with MediaPipe
         image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -596,30 +714,26 @@ async def score_video(
             ),
         )
 
-    # -- 4. Run the pipeline ----------------------------------------------
-    start_monotonic = time.monotonic()
-    rep_results: List[RepResult] = []
-    frames_processed = 0
-    frames_with_landmarks = 0
+    # -- 4. Run the pipeline (Stage 5c: extracted to core.pipeline) --------
+    pipeline = ScoringPipeline(
+        threshold_provider=app.state.threshold_provider,
+        cnn_lstm_scorer=app.state.cnn_lstm_scorer,
+    )
 
+    loop = asyncio.get_running_loop()
     try:
-        with VideoProcessor(exercise) as vp:
-            counter = make_rep_counter(exercise, age_group)
-            scorer = FormScorer(exercise, age_group)
-
-            for pf in vp.process_bytes(video_bytes):
-                frames_processed += 1
-                if not pf.landmarks_detected:
-                    continue
-                frames_with_landmarks += 1
-                event = counter.update_angle(
-                    pf.primary_angle,
-                    pf.timestamp,
-                    features=pf.features,
-                )
-                if event is not None:
-                    score = scorer.score(event)
-                    rep_results.append(_to_rep_result(event, score))
+        result = await loop.run_in_executor(
+            None,
+            pipeline.score,
+            video_bytes,
+            exercise,
+            age_group,
+        )
+    except ThresholdsNotFoundError as exc:
+        # Schema-level: the requested exercise has no thresholds shipped.
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except MalformedThresholdsError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except (VideoDecodeError, NoFramesExtractedError) as exc:
         # Bad input, not a server fault — surface the reason.
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -635,27 +749,28 @@ async def score_video(
         )
         raise HTTPException(status_code=500, detail="Internal processing error")
 
-    processing_time_s = time.monotonic() - start_monotonic
-
-    # -- 5. Aggregate --------------------------------------------------------
-    valid_scores = [r.final_score for r in rep_results if r.final_score is not None]
-    average_score = (sum(valid_scores) / len(valid_scores)) if valid_scores else None
+    rep_results: List[RepResult] = [
+        _to_rep_result(r.event, r.score) for r in result.per_rep
+    ]
 
     logger.info(
-        "Scored video: exercise=%s, age_group=%s, reps=%d, frames=%d/%d, time=%.2fs",
+        "Scored video: exercise=%s, age_group=%s, reps=%d, frames=%d/%d, "
+        "time=%.2fs, headline.score=%d",
         exercise, age_group, len(rep_results),
-        frames_with_landmarks, frames_processed, processing_time_s,
+        result.frames_with_landmarks, result.frames_processed,
+        result.processing_time_s, result.headline.score,
     )
 
     return ScoreResponse(
         exercise=exercise,
         age_group=age_group,
         total_reps=len(rep_results),
-        average_score=average_score,
-        frames_processed=frames_processed,
-        frames_with_landmarks=frames_with_landmarks,
-        processing_time_s=processing_time_s,
+        average_score=result.average_score,
+        frames_processed=result.frames_processed,
+        frames_with_landmarks=result.frames_with_landmarks,
+        processing_time_s=result.processing_time_s,
         reps=rep_results,
+        headline=result.headline,
     )
 
 @app.get("/api/exercises")
@@ -741,6 +856,69 @@ async def get_models_status():
         "models": models,
         "timestamp": datetime.now().isoformat()
     }
+
+# ===========================================
+# Stage 5c — reference skeleton + equipment endpoints
+# ===========================================
+
+REPO_ROOT = Path(__file__).resolve().parent
+EXERCISES_DIR = REPO_ROOT / "exercises"
+
+
+@app.get("/api/reference/{exercise_id}")
+async def get_reference_skeleton(exercise_id: str):
+    """Return the reference skeleton sequence for *exercise_id*.
+
+    Reads ``exercises/<exercise_id>/reference_skeleton.json`` — a hand-
+    authored (or placeholder) JSON containing one keyframe per non-IDLE
+    FSM phase: DESCENDING / BOTTOM / ASCENDING / TOP. The frontend uses
+    this for ghost-overlay rendering during live sessions.
+
+    Returns 404 when the file is missing — Stage 5c only ships
+    bicep_curl. Returns 500 only on disk read errors.
+    """
+    path = EXERCISES_DIR / exercise_id / "reference_skeleton.json"
+    if not path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"No reference skeleton for exercise {exercise_id!r}",
+        )
+    try:
+        with path.open("r", encoding="utf-8") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError) as exc:
+        logger.exception("Failed to read reference skeleton %s", path)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Malformed reference skeleton for {exercise_id!r}: {exc}",
+        ) from exc
+
+
+@app.get("/api/equipment")
+async def get_equipment_state(request: Request):
+    """Return the latest :class:`EquipmentState` snapshot.
+
+    Reads ``app.state.equipment_holder``, which the background YOLOv8
+    loop updates at 1 Hz. Before the first detection completes (or
+    when no frames have been written to the buffer), the holder
+    returns its sentinel state (``detections=()``,
+    ``last_updated_frame_id=-1``, ``last_updated_timestamp_ms=-1``).
+    """
+    state = request.app.state.equipment_holder.get()
+    return {
+        "detections": [
+            {
+                "label": d.label,
+                "confidence": d.confidence,
+                "bbox_xyxy": list(d.bbox_xyxy),
+                "frame_id_detected": d.frame_id_detected,
+            }
+            for d in state.detections
+        ],
+        "last_updated_frame_id": state.last_updated_frame_id,
+        "last_updated_timestamp_ms": state.last_updated_timestamp_ms,
+    }
+
 
 @app.get("/health")
 async def health_check():
