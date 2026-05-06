@@ -42,7 +42,8 @@ class MLAggregator:
     """Load a trained ``.pkl`` model and score a completed rep.
 
     Args:
-        exercise:  Exercise key (``'bicep'``, ``'back'``, ``'chest'``).
+        exercise:  Exercise key (``'bicep_curl'``, ``'bent_over_row'``,
+                   ``'push_up'``).
         age_group: Age group key (``'children'``, ``'adult'``, ``'senior'``).
 
     Raises:

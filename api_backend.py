@@ -31,6 +31,7 @@ from exercises.bicep_curl import BicepCurlExercise
 
 # Import auto-detection
 from core.exercise_classifier import ExerciseClassifier, quick_detect_exercise
+from core.exercise_mapping import BODY_PART_TO_EXERCISE
 
 # Video-based scoring pipeline
 import config as app_config
@@ -61,14 +62,14 @@ MAX_FRAME_SIZE_MB = 5
 MAX_IMAGE_DIMENSION = 1920
 MAX_VIDEO_BYTES = 50 * 1024 * 1024  # 50 MB cap for /api/score uploads
 MODELS_DIR = Path("data/models")
-EXERCISES = ["bicep", "back", "chest"]
+EXERCISES = ["bicep_curl", "bent_over_row", "push_up"]
 AGE_GROUPS = ["children", "adult", "senior"]
 
 # ===========================================
 # PYDANTIC MODELS
 # ===========================================
 class ExerciseRequest(BaseModel):
-    exercise_type: Optional[str] = Field(None, description="Exercise type: bicep, back, chest, legs, shoulders, arms (auto-detect if not provided)")
+    exercise_type: Optional[str] = Field(None, description="Exercise key: bicep_curl, bent_over_row, push_up (auto-detect from body-part classifier if not provided)")
     age: int = Field(..., description="User's age in years", ge=8, le=100)
     frame_data: str = Field(..., description="Base64 encoded image frame")
     auto_detect: bool = Field(True, description="Automatically detect exercise type")
@@ -266,26 +267,30 @@ class ExerciseManager:
         return self.model_availability.get(f"{exercise_type}_{age_group}", False)
     
     def get_exercise_instance(self, session_id: str, exercise_type: str, age: int, user_id: Optional[str] = None):
-        """Get or create exercise instance for a session"""
+        """Get or create exercise instance for a session.
+
+        ``exercise_type`` must be one of the long-form keys in :data:`EXERCISES`
+        (``bicep_curl``, ``bent_over_row``, ``push_up``). Body-part classifier
+        outputs are translated to long-form keys via
+        :data:`BODY_PART_TO_EXERCISE` *before* this method is called — see
+        :func:`process_frame` for the routing logic.
+        """
         if session_id not in self.sessions:
             logger.info(f"Creating new session: {session_id} (exercise={exercise_type}, age={age})")
             config = get_exercise_config(exercise_type, age)
-            
-            # Create appropriate exercise instance
-            if exercise_type == 'bicep' or exercise_type == 'arms':
-                # Use existing bicep class with config
+
+            if exercise_type == 'bicep_curl':
                 exercise = BicepCurlExercise(config)
-            elif exercise_type == 'back':
+            elif exercise_type == 'bent_over_row':
                 exercise = BackExercise(config)
-            elif exercise_type == 'chest':
+            elif exercise_type == 'push_up':
                 exercise = ChestExercise(config)
-            elif exercise_type == 'legs':
-                exercise = BackExercise(config)  # Placeholder - reuse back logic
-            elif exercise_type == 'shoulders':
-                exercise = BackExercise(config)  # Placeholder - reuse back logic
             else:
-                raise ValueError(f"Unknown exercise type: {exercise_type}")
-            
+                raise ValueError(
+                    f"Unknown exercise type: {exercise_type!r}. "
+                    f"Must be one of {EXERCISES}."
+                )
+
             self.sessions[session_id] = {
                 'exercise': exercise,
                 'exercise_type': exercise_type,
@@ -294,7 +299,7 @@ class ExerciseManager:
                 'user_id': user_id,
                 'age': age
             }
-        
+
         return self.sessions[session_id]
     
     def remove_session(self, session_id: str):
@@ -315,7 +320,7 @@ async def root():
         "status": "online",
         "service": "AI Gym Exercise Detection API",
         "version": "2.0.0",
-        "supported_exercises": ["bicep", "back", "chest"],
+        "supported_exercises": EXERCISES,
         "age_groups": ["children (8-15)", "adult (16-59)", "senior (60+)"]
     }
 
@@ -390,20 +395,40 @@ async def process_frame(request: ExerciseRequest):
             for lm in results.pose_landmarks.landmark
         ]
         
-        # Auto-detect exercise if not provided or auto_detect is True
+        # Auto-detect body part, then route through BODY_PART_TO_EXERCISE.
+        # The classifier emits body-part categories (arms / back / chest / ...);
+        # specific-exercise selection happens here via the mapping. Body parts
+        # with no mapped exercise (legs / shoulders / unknown) fall through to
+        # the user-provided value or the default.
         exercise_type = request.exercise_type
         detection_confidence = 1.0
-        
+        detected_body_part = "unknown"
+
         if request.auto_detect or not exercise_type:
-            detected_exercise, detection_confidence = exercise_manager.classifier.detect_exercise_type(
-                results.pose_landmarks.landmark
+            detected_body_part, detection_confidence = (
+                exercise_manager.classifier.detect_exercise_type(
+                    results.pose_landmarks.landmark
+                )
             )
-            
-            # Warn if detection confidence is low
             if detection_confidence < 0.6:
-                logger.warning(f"Low detection confidence: {detection_confidence:.2f} for {detected_exercise}")
-            
-            exercise_type = detected_exercise if detection_confidence > 0.6 else (exercise_type or 'back')
+                logger.warning(
+                    f"Low detection confidence: {detection_confidence:.2f} "
+                    f"for body part {detected_body_part!r}"
+                )
+            mapped = (
+                BODY_PART_TO_EXERCISE.get(detected_body_part)
+                if detection_confidence > 0.6 else None
+            )
+            exercise_type = mapped or exercise_type or 'bent_over_row'
+
+        if exercise_type not in EXERCISES:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Unsupported exercise type {exercise_type!r}. "
+                    f"Must be one of {EXERCISES}."
+                ),
+            )
         
         # Determine age group for model checking
         if request.age < 16:
@@ -474,9 +499,12 @@ async def start_session(
     """Start a new workout session"""
     session_id = f"{user_id}_{exercise_type}_{datetime.now().timestamp()}"
     
-    # Validate inputs
-    if exercise_type not in ['bicep', 'back', 'chest', 'legs', 'shoulders', 'arms']:
-        raise HTTPException(status_code=400, detail="Invalid exercise type")
+    # Validate inputs (long-form keys per Stage 5a naming reconciliation).
+    if exercise_type not in EXERCISES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid exercise type {exercise_type!r}. Must be one of {EXERCISES}.",
+        )
     
     if age < 8 or age > 100:
         raise HTTPException(status_code=400, detail="Age must be between 8 and 100")
@@ -636,19 +664,19 @@ async def get_exercises():
     return {
         "exercises": [
             {
-                "id": "bicep",
+                "id": "bicep_curl",
                 "name": "Bicep Curl",
                 "description": "Arm curl exercise for biceps",
                 "muscles": ["biceps", "forearms"]
             },
             {
-                "id": "back",
-                "name": "Back Row",
+                "id": "bent_over_row",
+                "name": "Bent-over Row",
                 "description": "Rowing exercise for back muscles",
                 "muscles": ["lats", "rhomboids", "traps"]
             },
             {
-                "id": "chest",
+                "id": "push_up",
                 "name": "Push-up",
                 "description": "Bodyweight chest exercise",
                 "muscles": ["chest", "triceps", "shoulders"]

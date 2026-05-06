@@ -348,12 +348,17 @@ class BackRuleEngine(BaseRuleEngine):
 
 
 class ChestRuleEngine(BaseRuleEngine):
-    """Rule engine for push-ups and chest press movements.
+    """Rule engine for push-ups.
 
-    Applies universal ROM (60° minimum for push-ups), speed, tempo, and
-    symmetry checks plus two chest-specific rules that inspect the
-    secondary angle (shoulder→hip→knee for plank integrity) and tertiary
-    angle (hip→knee→ankle for leg alignment) from ``feature_history``.
+    Applies universal ROM (60° minimum), speed, tempo, and symmetry
+    checks plus two push-up-specific rules that inspect the secondary
+    angle (shoulder→hip→knee for plank integrity) and tertiary angle
+    (hip→knee→ankle for leg alignment) from ``feature_history``.
+
+    Note: the plank-integrity and leg-alignment checks are push-up
+    biomechanics; they do **not** make sense for bench press (where the
+    body is on the bench rather than in plank, and knees are typically
+    bent). The rule-engine factory keys this class on ``'push_up'``.
     """
 
     def evaluate(self, rep: RepEvent) -> list[FormViolation]:
@@ -468,9 +473,9 @@ class NullRuleEngine(BaseRuleEngine):
 # ---------------------------------------------------------------------------
 
 _ENGINE_CLASSES: dict[str, type[BaseRuleEngine]] = {
-    'bicep': BicepRuleEngine,
-    'back': BackRuleEngine,
-    'chest': ChestRuleEngine,
+    'bicep_curl': BicepRuleEngine,
+    'bent_over_row': BackRuleEngine,
+    'push_up': ChestRuleEngine,
 }
 
 
@@ -478,7 +483,8 @@ def make_rule_engine(exercise: str) -> BaseRuleEngine:
     """Create the appropriate rule engine for *exercise*.
 
     Args:
-        exercise: Exercise key (``'bicep'``, ``'back'``, ``'chest'``).
+        exercise: Exercise key (``'bicep_curl'``, ``'bent_over_row'``,
+                  ``'push_up'``).
 
     Returns:
         The matching rule engine, or :class:`NullRuleEngine` for

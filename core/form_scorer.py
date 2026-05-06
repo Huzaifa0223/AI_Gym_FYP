@@ -44,7 +44,7 @@ class FormScore:
 
     Attributes:
         rep_number:      1-based rep index.
-        exercise_name:   E.g. ``'bicep'``.
+        exercise_name:   E.g. ``'bicep_curl'``.
         age_group:       E.g. ``'adult'``.
         ml_score:        ML good-form score (0-100), ``NaN`` if unavailable.
         ml_confidence:   Mean max probability (0-1), ``NaN`` if unavailable.
@@ -75,7 +75,8 @@ class FormScorer:
     """Orchestrate ML aggregation and rule-engine evaluation for a single rep.
 
     Args:
-        exercise:  Exercise key (``'bicep'``, ``'back'``, ``'chest'``).
+        exercise:  Exercise key (``'bicep_curl'``, ``'bent_over_row'``,
+                   ``'push_up'``).
         age_group: Age group key (``'children'``, ``'adult'``, ``'senior'``).
     """
 

@@ -75,7 +75,7 @@ class RepEvent:
         peak_angle:    Maximum primary angle sampled during the rep (top).
         trough_angle:  Minimum primary angle sampled during the rep (bottom).
         trajectory:    Every primary-angle sample captured between start and end.
-        exercise_name: E.g. ``"bicep"``, ``"back"``, ``"chest"``.
+        exercise_name: E.g. ``"bicep_curl"``, ``"bent_over_row"``, ``"push_up"``.
         age_group:     E.g. ``"adult"``, ``"children"``, ``"senior"``.
     """
     rep_number: int
@@ -329,8 +329,8 @@ class BicepRepCounter(BaseRepCounter):
 
     def __init__(self, age_group: str = 'adult') -> None:
         super().__init__(
-            config=REP_COUNTER_CONFIGS['bicep'],
-            exercise_name='bicep',
+            config=REP_COUNTER_CONFIGS['bicep_curl'],
+            exercise_name='bicep_curl',
             age_group=age_group,
         )
 
@@ -342,15 +342,15 @@ class BicepRepCounter(BaseRepCounter):
 
 
 class BackRepCounter(BaseRepCounter):
-    """Rep counter for back rows.
+    """Rep counter for bent-over rows.
 
     Primary angle: shoulder(12) -> elbow(14) -> wrist(16).
     """
 
     def __init__(self, age_group: str = 'adult') -> None:
         super().__init__(
-            config=REP_COUNTER_CONFIGS['back'],
-            exercise_name='back',
+            config=REP_COUNTER_CONFIGS['bent_over_row'],
+            exercise_name='bent_over_row',
             age_group=age_group,
         )
 
@@ -369,8 +369,8 @@ class ChestRepCounter(BaseRepCounter):
 
     def __init__(self, age_group: str = 'adult') -> None:
         super().__init__(
-            config=REP_COUNTER_CONFIGS['chest'],
-            exercise_name='chest',
+            config=REP_COUNTER_CONFIGS['push_up'],
+            exercise_name='push_up',
             age_group=age_group,
         )
 
@@ -386,9 +386,9 @@ class ChestRepCounter(BaseRepCounter):
 # ---------------------------------------------------------------------------
 
 _COUNTER_CLASSES: dict[str, type[BaseRepCounter]] = {
-    'bicep': BicepRepCounter,
-    'back': BackRepCounter,
-    'chest': ChestRepCounter,
+    'bicep_curl': BicepRepCounter,
+    'bent_over_row': BackRepCounter,
+    'push_up': ChestRepCounter,
 }
 
 
@@ -396,7 +396,7 @@ def make_rep_counter(exercise: str, age_group: str = 'adult') -> BaseRepCounter:
     """Create the correct rep counter for *exercise*.
 
     Args:
-        exercise:  One of ``'bicep'``, ``'back'``, ``'chest'``.
+        exercise:  One of ``'bicep_curl'``, ``'bent_over_row'``, ``'push_up'``.
         age_group: One of ``'children'``, ``'adult'``, ``'senior'``.
 
     Returns:

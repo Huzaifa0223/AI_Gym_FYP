@@ -45,7 +45,7 @@ def _make_rep(
         peak_angle=peak,
         trough_angle=trough,
         trajectory=trajectory,
-        exercise_name='bicep',
+        exercise_name='bicep_curl',
         age_group='adult',
     )
 
@@ -139,13 +139,13 @@ class TestFactory:
     """7. make_rule_engine returns correct types."""
 
     def test_bicep_returns_bicep_engine(self) -> None:
-        assert isinstance(make_rule_engine('bicep'), BicepRuleEngine)
+        assert isinstance(make_rule_engine('bicep_curl'), BicepRuleEngine)
 
     def test_back_returns_back_engine(self) -> None:
-        assert isinstance(make_rule_engine('back'), BackRuleEngine)
+        assert isinstance(make_rule_engine('bent_over_row'), BackRuleEngine)
 
     def test_chest_returns_chest_engine(self) -> None:
-        assert isinstance(make_rule_engine('chest'), ChestRuleEngine)
+        assert isinstance(make_rule_engine('push_up'), ChestRuleEngine)
 
     def test_unknown_returns_null_engine(self) -> None:
         assert isinstance(make_rule_engine('deadlift'), NullRuleEngine)

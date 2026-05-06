@@ -1,7 +1,7 @@
 """
 tests.test_ml_aggregator — pytest suite for core.ml_aggregator.
 
-Tests 1-2 use the real trained model at data/models/bicep_adult.pkl.
+Tests 1-2 use the real trained model at data/models/bicep_curl_adult.pkl.
 Tests 3-5 use synthetic FrameFeatures to validate score boundaries.
 """
 from __future__ import annotations
@@ -22,7 +22,7 @@ from core.rep_counter import FrameFeatures, RepEvent
 
 def _make_rep(
     features: tuple[FrameFeatures, ...] = (),
-    exercise: str = 'bicep',
+    exercise: str = 'bicep_curl',
     age_group: str = 'adult',
 ) -> RepEvent:
     """Build a minimal RepEvent with controlled feature_history."""
@@ -48,7 +48,7 @@ class TestMLAggregatorBasic:
     """1-2. Load real model and validate return types."""
 
     def test_score_returns_float_pair(self) -> None:
-        agg = MLAggregator('bicep', 'adult')
+        agg = MLAggregator('bicep_curl', 'adult')
         feats = tuple(
             FrameFeatures(primary_angle=a, secondary_angle=15.0, tertiary_angle=30.0)
             for a in [160.0, 120.0, 80.0, 40.0, 80.0, 120.0, 160.0]
@@ -63,14 +63,14 @@ class TestMLAggregatorBasic:
 
     def test_missing_model_raises(self) -> None:
         with pytest.raises(ModelNotAvailableError):
-            MLAggregator('bicep', 'infant')
+            MLAggregator('bicep_curl', 'infant')
 
 
 class TestMLAggregatorEdgeCases:
     """3. Empty feature_history raises InsufficientDataError."""
 
     def test_empty_features_raises(self) -> None:
-        agg = MLAggregator('bicep', 'adult')
+        agg = MLAggregator('bicep_curl', 'adult')
         rep = _make_rep(features=())
         with pytest.raises(InsufficientDataError):
             agg.score(rep)
@@ -80,7 +80,7 @@ class TestMLAggregatorScoreDirection:
     """4-5. Good-form features should score higher than bad-form features."""
 
     def test_good_form_scores_high(self) -> None:
-        agg = MLAggregator('bicep', 'adult')
+        agg = MLAggregator('bicep_curl', 'adult')
         # Good form: moderate elbow angles, low torso deviation, low arm swing
         feats = tuple(
             FrameFeatures(primary_angle=a, secondary_angle=10.0, tertiary_angle=20.0)
@@ -91,7 +91,7 @@ class TestMLAggregatorScoreDirection:
         assert ml_score > 50.0
 
     def test_bad_form_scores_low(self) -> None:
-        agg = MLAggregator('bicep', 'adult')
+        agg = MLAggregator('bicep_curl', 'adult')
         # Bad form per trained model: moderate secondary (~40°) + low tertiary
         # (~10°) indicates torso swing without compensating arm extension —
         # the model's primary bad-form signature.

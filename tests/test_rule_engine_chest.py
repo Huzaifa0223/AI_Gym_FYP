@@ -39,7 +39,7 @@ def _make_chest_rep(
         peak_angle=peak,
         trough_angle=trough,
         trajectory=trajectory,
-        exercise_name='chest',
+        exercise_name='push_up',
         age_group='adult',
         feature_history=features,
     )
@@ -160,8 +160,8 @@ class TestEmptyFeatureHistoryChest:
 
 
 class TestChestFactory:
-    """8. Factory returns ChestRuleEngine for 'chest'."""
+    """8. Factory returns ChestRuleEngine for 'push_up'."""
 
     def test_factory_chest(self) -> None:
-        engine = make_rule_engine('chest')
+        engine = make_rule_engine('push_up')
         assert isinstance(engine, ChestRuleEngine)

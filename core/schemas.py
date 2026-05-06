@@ -115,7 +115,8 @@ class HeuristicThresholds:
     consumed by the existing rule engines (``core/rule_engine.py``).
 
     Attributes:
-        exercise:                 One of ``'bicep'``, ``'back'``, ``'chest'``.
+        exercise:                 One of ``'bicep_curl'``, ``'bent_over_row'``,
+                                  ``'push_up'``.
         rom_band:                 ``(min_acceptable_rom_deg,
                                   max_acceptable_rom_deg)``.
         speed_band:               ``(min_rep_seconds, max_rep_seconds)``.

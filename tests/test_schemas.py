@@ -29,7 +29,7 @@ from core.schemas import (
 
 def _sane_thresholds(**overrides: Any) -> HeuristicThresholds:
     base: dict[str, Any] = dict(
-        exercise="bicep",
+        exercise="bicep_curl",
         rom_band=(80.0, 160.0),
         speed_band=(1.0, 5.0),
         tempo_stability_max_cv=0.6,
@@ -84,7 +84,7 @@ class TestImmutability:
     def test_heuristic_thresholds_frozen(self) -> None:
         ht = _sane_thresholds()
         with pytest.raises(dataclasses.FrozenInstanceError):
-            ht.exercise = "back"  # type: ignore[misc]
+            ht.exercise = "bent_over_row"  # type: ignore[misc]
 
 
 # ---------------------------------------------------------------------------
@@ -220,7 +220,7 @@ class TestScoreResponseHeadline:
             source_breakdown={"rules": 70, "rf": 80, "cnn_lstm": None},
         )
         resp = ScoreResponse(
-            exercise="bicep",
+            exercise="bicep_curl",
             age_group="adult",
             total_reps=5,
             average_score=75.0,
@@ -239,7 +239,7 @@ class TestScoreResponseHeadline:
         from api_backend import ScoreResponse
 
         resp = ScoreResponse(
-            exercise="bicep",
+            exercise="bicep_curl",
             age_group="adult",
             total_reps=0,
             average_score=None,

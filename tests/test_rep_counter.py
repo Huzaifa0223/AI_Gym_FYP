@@ -41,7 +41,7 @@ def _make_counter(
         max_rep_duration_s=max_dur,
     )
     counter = BicepRepCounter.__new__(BicepRepCounter)
-    BaseRepCounter.__init__(counter, config=cfg, exercise_name='bicep', age_group='adult')
+    BaseRepCounter.__init__(counter, config=cfg, exercise_name='bicep_curl', age_group='adult')
     return counter
 
 
@@ -96,7 +96,7 @@ class TestSineWaveReps:
         assert len(events) == n_reps
         for i, ev in enumerate(events, start=1):
             assert ev.rep_number == i
-            assert ev.exercise_name == 'bicep'
+            assert ev.exercise_name == 'bicep_curl'
             assert ev.age_group == 'adult'
             assert ev.duration_s > 0
 
@@ -144,9 +144,9 @@ class TestFactory:
     """5. Factory returns the correct subclass for each exercise."""
 
     @pytest.mark.parametrize("exercise,expected_cls", [
-        ('bicep', BicepRepCounter),
-        ('back', BackRepCounter),
-        ('chest', ChestRepCounter),
+        ('bicep_curl', BicepRepCounter),
+        ('bent_over_row', BackRepCounter),
+        ('push_up', ChestRepCounter),
     ])
     def test_correct_subclass(self, exercise: str, expected_cls: type) -> None:
         counter = make_rep_counter(exercise, age_group='adult')

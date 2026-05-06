@@ -132,11 +132,11 @@ Trust internal invariants; do not add redundant guards inside well-typed functio
 
 ### Angle definitions
 
-| Exercise | primary              | secondary             | tertiary              |
-|----------|----------------------|-----------------------|-----------------------|
-| Bicep    | shoulder→elbow→wrist | hip→shoulder→elbow    | hip→shoulder→wrist    |
-| Back     | shoulder→elbow→wrist | hip→shoulder→elbow    | hip→shoulder→wrist    |
-| Chest    | shoulder→elbow→wrist | shoulder→hip→knee     | hip→knee→ankle        |
+| Exercise        | primary              | secondary             | tertiary              |
+|-----------------|----------------------|-----------------------|-----------------------|
+| `bicep_curl`    | shoulder→elbow→wrist | hip→shoulder→elbow    | hip→shoulder→wrist    |
+| `bent_over_row` | shoulder→elbow→wrist | hip→shoulder→elbow    | hip→shoulder→wrist    |
+| `push_up`       | shoulder→elbow→wrist | shoulder→hip→knee     | hip→knee→ankle        |
 
 ---
 
@@ -175,7 +175,35 @@ claude --version
 
 ---
 
-## 11. Known asymmetries (3-pillar migration)
+## 11. Exercise naming convention
+
+The system has three layers that talk about exercises in different vocabularies.
+**Do not collapse them.**
+
+1. **Body-part classifier** (`core/exercise_classifier.py`) — emits coarse body
+   parts (`arms`, `back`, `chest`, `legs`, `shoulders`, `unknown`). It does
+   *not* emit specific exercise keys. Treating its output as a rule-engine
+   key is a bug.
+2. **Body-part → exercise map** (`core/exercise_mapping.BODY_PART_TO_EXERCISE`)
+   — single source of truth. Maps each body part to exactly one specific
+   exercise:
+   - `arms`  → `bicep_curl`
+   - `back`  → `bent_over_row`
+   - `chest` → `push_up`
+
+   Body parts intentionally absent from the map (`legs`, `shoulders`,
+   `unknown`) flow through to `NullRuleEngine` / caller default — preserving
+   graceful degradation.
+3. **Rule engines, ML aggregator, rep counters, configs** — keyed on the
+   long-form exercise key (`bicep_curl`, `bent_over_row`, `push_up`).
+   Trained model filenames follow the same scheme:
+   `data/models/{exercise}_{age_group}.pkl` →
+   `bicep_curl_adult.pkl`, `bent_over_row_senior.pkl`, etc.
+
+When adding a new exercise, add it to the layer-3 keys *and* to
+`BODY_PART_TO_EXERCISE` in one commit.
+
+## 12. Known asymmetries (3-pillar migration)
 
 The 3-pillar pipeline (`docs/architecture_3pillar.md`) introduces a deliberate
 inconsistency that contributors must understand before changing the scoring path:
