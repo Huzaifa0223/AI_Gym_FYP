@@ -18,6 +18,26 @@
   - Shared: tempo symmetry ratio in `[0.7, 1.5]`
 - **Priority:** Medium (do before final FYP submission).
 
+## Bicep Curl Threshold Citation Review (Stage 3 follow-up)
+- **Task:** Cross-reference the calibrated `heuristic_thresholds.json` for
+  bicep_curl against NSCA / ACSM published bicep-curl form guidance.
+- **Context:** Stage 3 (`training/data_collector.py`) currently writes every
+  threshold with `sources: "derived_from_video"`. The framework is in place;
+  no value has been retagged with `nsca` or `acsm` because doing so without
+  a citation would be fabrication. NSCA/ACSM thresholds may differ from
+  video-derived ones — that delta needs to be reconciled, not silently
+  overwritten.
+- **Priority:** High — must complete before viva so the report can defend
+  the threshold provenance.
+- **Acceptance criteria:**
+  - For each threshold (`rom_band`, `speed_band`, `tempo_stability_max_cv`,
+    `tempo_symmetry_min_ratio`), record the published reference and page.
+  - Update `sources` keys in the JSON to `"nsca"` or `"acsm"` where the
+    citation supports it; leave as `"derived_from_video"` only when no
+    published equivalent exists.
+  - The `ALLOWED_THRESHOLD_SOURCES` allowlist in `core/schemas.py` already
+    accepts these three values — no schema change required.
+
 ## API Integration Follow-ups
 - **WebSocket endpoint** for real-time scoring from a streaming landmark feed (not yet implemented — /api/score is one-shot video only).
 - **Progress stream** for long videos: return Server-Sent Events with per-rep scores as they close, instead of waiting for the whole video to process.
