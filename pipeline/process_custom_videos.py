@@ -61,15 +61,21 @@ class CustomVideoProcessor:
             'AGE 46-85 (Seniors)': 'senior'
         }
         
-        # Map exercise folder names
+        # Map exercise folder names (keys = filesystem folders, kept for
+        # backwards compatibility) to long-form exercise keys (values, per
+        # Stage 5a naming reconciliation). Body-category folders (legs /
+        # shoulders / arms) have no specific exercise in this stage; their
+        # entries here are passthrough so the script does not crash on
+        # encountering them, but they will not produce trainable models
+        # downstream until those exercises are added.
         self.exercise_mapping = {
-            'BACK': 'back',
-            'back': 'back',
-            'chest': 'chest',
-            'legs': 'legs',
+            'BACK':      'bent_over_row',
+            'back':      'bent_over_row',
+            'chest':     'push_up',
+            'bicep':     'bicep_curl',
+            'legs':      'legs',
             'shoulders': 'shoulders',
-            'arms': 'arms',
-            'bicep': 'bicep'
+            'arms':      'arms',
         }
     
     def extract_landmarks_from_video(self, video_path: str, metadata: Dict) -> List[Dict]:

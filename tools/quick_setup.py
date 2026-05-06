@@ -119,24 +119,24 @@ def create_readme_files():
     """Create README files in each video directory with instructions"""
     
     exercise_instructions = {
-        'bicep': {
+        'bicep_curl': {
             'children': 'Modified bicep curls with light weights or resistance bands. 5-10 reps per video.',
             'adult': 'Standard bicep curls with dumbbells or barbell. Full range of motion. 5-10 reps per video.',
             'senior': 'Seated or supported bicep curls with light weights. Controlled movement. 5-10 reps per video.'
         },
-        'back': {
+        'bent_over_row': {
             'children': 'Light resistance band rows or assisted pull movements. Focus on form.',
             'adult': 'Bent-over rows, lat pulldowns, or pull-ups. Full range of motion.',
             'senior': 'Seated rows with light resistance. Supported movements.'
         },
-        'chest': {
+        'push_up': {
             'children': 'Wall push-ups or incline push-ups. Modified form acceptable.',
             'adult': 'Standard push-ups or bench press. Full range of motion.',
             'senior': 'Wall push-ups or seated chest press with light weights.'
         }
     }
     
-    exercises = ['bicep', 'back', 'chest']
+    exercises = ['bicep_curl', 'bent_over_row', 'push_up']
     age_groups = ['children', 'adult', 'senior']
     
     for exercise in exercises:

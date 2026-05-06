@@ -136,7 +136,7 @@ Your backend should send POST requests to:
 
 Example request:
 {
-  "exercise_type": "bicep",
+  "exercise_type": "bicep_curl",
   "age": 25,
   "frame_data": "<base64_encoded_image>"
 }

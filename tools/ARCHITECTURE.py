@@ -129,7 +129,7 @@ ARCHITECTURE = r"""
       max_rep_time: 4.0,              confidence: 0.98,           "secondary_angle": 85.3,
       model_path: "...",              is_valid_rep: true,         "rep_quality": 95.0,
       flexibility: 10°,               rep_quality: 95.0,          "confidence": 0.98,
-      speed_tolerance: 0.5s,          exercise_type: "bicep",     "is_valid_rep": true,
+      speed_tolerance: 0.5s,          exercise_type: "bicep_curl", "is_valid_rep": true,
       form_strictness: 1.0            age_group: "adult"          "timestamp": "..."
     }                               }                           }
 

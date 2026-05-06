@@ -48,7 +48,7 @@ class AIGymClient:
         
         Args:
             frame: OpenCV frame (numpy array)
-            exercise_type: 'bicep', 'back', or 'chest'
+            exercise_type: 'bicep_curl', 'bent_over_row', or 'push_up'
             age: User's age
             
         Returns:
@@ -98,7 +98,7 @@ class AIGymClient:
             return {"error": str(e)}
 
 
-def demo_webcam_integration(exercise_type='bicep', age=25):
+def demo_webcam_integration(exercise_type='bicep_curl', age=25):
     """
     Demo: Process webcam feed through API
     Shows real-time integration example
@@ -261,7 +261,7 @@ if __name__ == '__main__':
         test_api_endpoints()
     
     elif command == 'demo':
-        exercise = sys.argv[2] if len(sys.argv) > 2 else 'bicep'
+        exercise = sys.argv[2] if len(sys.argv) > 2 else 'bicep_curl'
         age = int(sys.argv[3]) if len(sys.argv) > 3 else 25
         demo_webcam_integration(exercise, age)
     

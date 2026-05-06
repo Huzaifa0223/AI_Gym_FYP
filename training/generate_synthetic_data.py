@@ -65,7 +65,7 @@ import copy
 # ─────────────────────────────────────────────────────────────────────────────
 
 ANGLE_CONFIGS = {
-    'bicep': {
+    'bicep_curl': {
         # PRIMARY  = elbow angle (50° = fully curled, 170° = arm down)
         # SECONDARY = hip→shoulder→elbow deviation from torso
         #   Good form: elbow stays at side → secondary ≈ 8–22°
@@ -96,7 +96,7 @@ ANGLE_CONFIGS = {
         },
     },
 
-    'back': {
+    'bent_over_row': {
         # PRIMARY  = elbow angle (arm extended = 170°, fully pulled = 30°)
         # SECONDARY = hip→shoulder→elbow  (measures torso lean / back engagement)
         #   Good form: appropriate lean → secondary ≈ 50–100°
@@ -127,7 +127,7 @@ ANGLE_CONFIGS = {
         },
     },
 
-    'chest': {
+    'push_up': {
         # PRIMARY  = elbow angle (push-up: top = 180°, bottom = 50°)
         # SECONDARY = shoulder→hip→knee  (body alignment in plank)
         #   Good form: straight body → secondary ≈ 168–180°
@@ -285,7 +285,7 @@ def build_skeleton(exercise: str, primary_angle: float, secondary_angle: float,
     # primary   = angle(shoulder, elbow, wrist) at elbow
     #   place wrist by rotating shoulder-direction at elbow by +primary_angle
 
-    if exercise in ('bicep', 'back'):
+    if exercise in ('bicep_curl', 'bent_over_row'):
         ex, ey = _place_child_joint(shoulder, hip, secondary_angle, ua)
         elbow = (ex, ey, 0.0)
 
@@ -414,7 +414,7 @@ def verify_angles(df: pd.DataFrame, exercise: str) -> None:
 
         prim = _calc_angle_2d(s, e, w)   # at elbow
 
-        if exercise in ('bicep', 'back'):
+        if exercise in ('bicep_curl', 'bent_over_row'):
             sec = _calc_angle_2d(h, s, e)   # at shoulder
         else:
             sec = _calc_angle_2d(s, h, kn)  # at hip
@@ -443,7 +443,7 @@ def main():
     rng = np.random.default_rng(SEED)
     ts  = datetime.now().strftime('%Y%m%d_%H%M%S')
 
-    exercises  = ['bicep', 'back', 'chest']
+    exercises  = ['bicep_curl', 'bent_over_row', 'push_up']
     age_groups = ['children', 'adult', 'senior']
 
     total_files = 0

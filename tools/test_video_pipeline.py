@@ -22,17 +22,17 @@ def test_metadata_extraction():
     test_cases = [
         {
             'path': 'videos/bicep/adult/good_form/video1.mp4',
-            'expected': {'exercise_type': 'bicep', 'age_group': 'adult', 'label': 1, 'form_type': 'good_form'},
+            'expected': {'exercise_type': 'bicep_curl', 'age_group': 'adult', 'label': 1, 'form_type': 'good_form'},
             'name': 'Bicep Adult Good Form'
         },
         {
             'path': 'videos/back/senior/bad_form/video2.mp4',
-            'expected': {'exercise_type': 'back', 'age_group': 'senior', 'label': 0, 'form_type': 'bad_form'},
+            'expected': {'exercise_type': 'bent_over_row', 'age_group': 'senior', 'label': 0, 'form_type': 'bad_form'},
             'name': 'Back Senior Bad Form'
         },
         {
             'path': 'videos/chest/children/good_form/video3.mp4',
-            'expected': {'exercise_type': 'chest', 'age_group': 'children', 'label': 1, 'form_type': 'good_form'},
+            'expected': {'exercise_type': 'push_up', 'age_group': 'children', 'label': 1, 'form_type': 'good_form'},
             'name': 'Chest Children Good Form'
         },
     ]
@@ -270,7 +270,7 @@ def test_valid_exercises_ages():
     print(f"  Label Mapping: {processor.label_mapping}")
     
     checks = [
-        (processor.valid_exercises == ['bicep', 'back', 'chest'], "Exercises correct"),
+        (processor.valid_exercises == ['bicep_curl', 'bent_over_row', 'push_up'], "Exercises correct"),
         (processor.valid_age_groups == ['children', 'adult', 'senior'], "Age groups correct"),
         (processor.label_mapping == {'good_form': 1, 'bad_form': 0}, "Label mapping correct"),
     ]
