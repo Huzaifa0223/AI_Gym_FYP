@@ -34,3 +34,13 @@ Pillow==12.1.0
 # ── Utilities ────────────────────────────────────────────────────────────────
 requests==2.32.5
 PyYAML==6.0.3
+
+# ── Object detection (Stage 4 — equipment detector) ──────────────────────────
+# Pinned to keep CI deterministic. ultralytics pulls torch transitively;
+# install with the CPU index URL on machines without a CUDA-capable GPU:
+#     pip install -r requirements.txt \
+#         --extra-index-url https://download.pytorch.org/whl/cpu
+# Weights file `models/yolov8n.pt` is fetched separately via
+# `python -m scripts.fetch_yolo_weights` (network access required for fetch;
+# runtime loading is offline).
+ultralytics==8.3.0

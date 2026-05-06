@@ -29,8 +29,10 @@ within a strict latency budget.
 | Dev toolchain    | Claude Code native binary             | latest   |
 | Object detection | YOLOv8-nano (ultralytics)             | 8.3.x    |
 
-> Object detection is added by Stage 3 of the 3-pillar pipeline. Weights live at
-> `models/yolov8n.pt` and are gitignored — fetch with `scripts/fetch_yolo_weights.py`.
+> Object detection is added by Stage 4 of the 3-pillar pipeline. Weights live at
+> `models/yolov8n.pt` and are gitignored — fetch with
+> `python -m scripts.fetch_yolo_weights`. The fetch script requires network
+> access; runtime loading from the local file is offline.
 
 ### FORBIDDEN technologies (never introduce)
 
