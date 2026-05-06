@@ -39,7 +39,7 @@ def _make_back_rep(
         peak_angle=peak,
         trough_angle=trough,
         trajectory=trajectory,
-        exercise_name='back',
+        exercise_name='bent_over_row',
         age_group='adult',
         feature_history=features,
     )
@@ -180,8 +180,8 @@ class TestEmptyFeatureHistoryGraceful:
 
 
 class TestBackFactory:
-    """8. Factory returns BackRuleEngine for 'back'."""
+    """8. Factory returns BackRuleEngine for 'bent_over_row'."""
 
     def test_factory_back(self) -> None:
-        engine = make_rule_engine('back')
+        engine = make_rule_engine('bent_over_row')
         assert isinstance(engine, BackRuleEngine)

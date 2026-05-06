@@ -58,25 +58,6 @@
     "barbell", "bench", "mat"))` at the call site.
   - Add a one-line provenance comment naming the dataset / source / date.
 
-## Stage 5 Prerequisite: Reconcile `exercise` Field Naming
-- **Task:** Standardise on the longer descriptive form everywhere.
-- **Context:** Stage 3's calibrator output writes
-  `"exercise": "bicep_curl"` (matching the directory name and existing
-  `exercises/bicep_curl.py` module). The rule engines in
-  `core/rule_engine.py` use the short form `"bicep" / "back" / "chest"`,
-  matching the trained `.pkl` filenames (`bicep_adult.pkl` etc.).
-  Aliasing between the two is a code smell.
-- **Resolution:** Rename rule-engine keys to the long form
-  (`bicep_curl`, `bent_over_row`, `bench_press`). Do not alias.
-- **Priority:** Must complete in Stage 5 before any consumer reads both
-  artefacts at once.
-- **Acceptance criteria:**
-  - `_ENGINE_CLASSES` keys in `core/rule_engine.py` updated.
-  - All call sites (`core/form_scorer.FormScorer`, `api_backend.score_video`,
-    config maps in `config.py` / `core/rep_counter.py`) updated.
-  - Tests still pass; pkl filename mapping handled at the storage layer
-    (model_path in config.py) without leaking the short form upward.
-
 ## API Integration Follow-ups
 - **WebSocket endpoint** for real-time scoring from a streaming landmark feed (not yet implemented — /api/score is one-shot video only).
 - **Progress stream** for long videos: return Server-Sent Events with per-rep scores as they close, instead of waiting for the whole video to process.

@@ -81,7 +81,7 @@ class TestConstruction:
     """1. VideoProcessor instantiates cleanly; close() is idempotent."""
 
     def test_instantiate_and_close_idempotent(self) -> None:
-        vp = VideoProcessor('bicep')
+        vp = VideoProcessor('bicep_curl')
         vp.close()
         vp.close()  # second close must be a no-op, not an error
 
@@ -94,7 +94,7 @@ class TestDecodeFailure:
     """3. process_bytes on non-video input raises VideoDecodeError."""
 
     def test_garbage_bytes_raise_decode_error(self) -> None:
-        with VideoProcessor('bicep') as vp:
+        with VideoProcessor('bicep_curl') as vp:
             with pytest.raises(VideoDecodeError):
                 # The generator must be consumed for the error to fire
                 list(vp.process_bytes(b"not a video at all"))
@@ -104,7 +104,7 @@ class TestTimestampsAndFrameCount:
     """4 & 7. Timestamps monotonically increase; frame count matches writer."""
 
     def test_timestamps_and_count(self, synthetic_video_bytes: bytes) -> None:
-        with VideoProcessor('bicep') as vp:
+        with VideoProcessor('bicep_curl') as vp:
             frames = list(vp.process_bytes(synthetic_video_bytes))
 
         expected = int(round(2.0 * _FPS))
@@ -125,7 +125,7 @@ class TestNoLandmarksOnSolidFrames:
     def test_all_frames_report_no_landmarks(
         self, synthetic_video_bytes: bytes
     ) -> None:
-        with VideoProcessor('bicep') as vp:
+        with VideoProcessor('bicep_curl') as vp:
             frames = list(vp.process_bytes(synthetic_video_bytes))
 
         assert len(frames) > 0
@@ -139,7 +139,7 @@ class TestContextManagerReleasesPose:
     """6. Context manager releases the MediaPipe pose on exit."""
 
     def test_exit_closes_pose(self, synthetic_video_bytes: bytes) -> None:
-        vp = VideoProcessor('bicep')
+        vp = VideoProcessor('bicep_curl')
         with vp as ctx:
             assert ctx is vp
             # Drain at least one frame to prove the processor was usable.
@@ -153,7 +153,7 @@ class TestContextManagerReleasesPose:
 class TestAllSupportedExercises:
     """Extra — every registered exercise works end-to-end on the same clip."""
 
-    @pytest.mark.parametrize("exercise", ['bicep', 'back', 'chest'])
+    @pytest.mark.parametrize("exercise", ['bicep_curl', 'bent_over_row', 'push_up'])
     def test_all_exercises_produce_frames(
         self, exercise: str, synthetic_video_bytes: bytes
     ) -> None:
@@ -182,6 +182,6 @@ class TestEmptyVideo:
         if not path.exists() or path.stat().st_size == 0:
             pytest.skip("Writer did not produce a file header")
 
-        with VideoProcessor('bicep') as vp:
+        with VideoProcessor('bicep_curl') as vp:
             with pytest.raises(NoFramesExtractedError):
                 list(vp.process_file(path))

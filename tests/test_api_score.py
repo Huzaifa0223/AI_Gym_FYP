@@ -66,7 +66,7 @@ def _post_score(
     client: TestClient,
     *,
     video_bytes: bytes | None,
-    exercise: str | None = "bicep",
+    exercise: str | None = "bicep_curl",
     age_group: str | None = "adult",
     filename: str = "clip.avi",
     content_type: str = "video/x-msvideo",
@@ -97,7 +97,7 @@ class TestHappyPath:
         assert resp.status_code == 200, resp.text
 
         body = resp.json()
-        assert body["exercise"] == "bicep"
+        assert body["exercise"] == "bicep_curl"
         assert body["age_group"] == "adult"
         assert isinstance(body["reps"], list)
         # Synthetic clip has no pose, so zero reps is expected.

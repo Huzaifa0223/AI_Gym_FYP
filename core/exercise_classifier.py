@@ -1,6 +1,15 @@
 """
-Automatic Exercise Detection & Classification
-Detects which exercise user is performing based on body movements
+Automatic Body-Part Classification
+
+Outputs **body-part categories** — ``arms``, ``back``, ``chest``,
+``legs``, ``shoulders``, ``unknown`` — based on coarse landmark patterns.
+These are NOT specific exercise keys. Specific-exercise selection happens
+one layer up via :data:`core.exercise_mapping.BODY_PART_TO_EXERCISE`,
+which maps each body part to a single rule-engine-keyed exercise
+(``arms`` → ``bicep_curl``, ``back`` → ``bent_over_row``,
+``chest`` → ``push_up``). Body parts with no mapped exercise (``legs``,
+``shoulders``, ``unknown``) flow to the project's ``NullRuleEngine``
+fallback, preserving graceful degradation.
 """
 import numpy as np
 from typing import Dict, Tuple, Optional

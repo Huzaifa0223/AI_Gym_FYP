@@ -860,7 +860,7 @@ class AIGymTrainer:
 
         # Exercise-class integration (set via setup_exercise before run())
         self.exercise_instance = None
-        self.exercise_type = 'bicep'
+        self.exercise_type = 'bicep_curl'
         self.age_group = 'adult'
 
         # Setup logging
@@ -888,7 +888,7 @@ class AIGymTrainer:
         Must be called before run().  Replaces the disabled MLModelHandler path
         for all exercises.
 
-        exercise_type: 'bicep' | 'back' | 'chest'
+        exercise_type: 'bicep_curl' | 'bent_over_row' | 'push_up'
         age:           user's age in years (determines age-group & model file)
         """
         try:
@@ -902,14 +902,14 @@ class AIGymTrainer:
             self.age_group = config.age_group
             self.config.model_path = config.model_path  # for logging
 
-            if exercise_type == 'bicep':
+            if exercise_type == 'bicep_curl':
                 self.exercise_instance = BicepCurlExercise(config)
-            elif exercise_type == 'back':
+            elif exercise_type == 'bent_over_row':
                 self.exercise_instance = BackExercise(config)
-            elif exercise_type == 'chest':
+            elif exercise_type == 'push_up':
                 self.exercise_instance = ChestExercise(config)
             else:
-                print(f"[WARNING] Unknown exercise '{exercise_type}', defaulting to bicep")
+                print(f"[WARNING] Unknown exercise '{exercise_type}', defaulting to bicep_curl")
                 self.exercise_instance = BicepCurlExercise(config)
 
             print(f"[INFO] Exercise ready: {exercise_type.upper()} | {self.age_group.upper()}")
@@ -1549,8 +1549,8 @@ def main():
     print("  2. Back Row")
     print("  3. Chest Push-up")
     ex_input = input("Enter choice [1-3, default=1]: ").strip() or "1"
-    exercise_map = {"1": "bicep", "2": "back", "3": "chest"}
-    exercise_type = exercise_map.get(ex_input, "bicep")
+    exercise_map = {"1": "bicep_curl", "2": "bent_over_row", "3": "push_up"}
+    exercise_type = exercise_map.get(ex_input, "bicep_curl")
 
     age_input = input("Enter your age [8-100, default=25]: ").strip() or "25"
     try:

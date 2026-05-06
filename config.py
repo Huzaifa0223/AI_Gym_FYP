@@ -17,7 +17,10 @@ CALIBRATION_DIR = BASE_DIR / 'user_calibration'
 SESSION_DIR     = BASE_DIR / 'session_logs'
 
 # ── Exercises & age groups ───────────────────────────────────────────────────
-EXERCISES  = ['bicep', 'back', 'chest']
+# Long-form keys per the Stage 5a naming reconciliation. The rule engines,
+# ML aggregator, and rep counters all key on these exact strings; classifier
+# body-part outputs are routed through core.exercise_mapping.BODY_PART_TO_EXERCISE.
+EXERCISES  = ['bicep_curl', 'bent_over_row', 'push_up']
 AGE_GROUPS = ['children', 'adult', 'senior']
 
 # Age boundaries (used to map numeric age → age_group string)
@@ -39,9 +42,9 @@ def model_exists(exercise: str, age_group: str) -> bool:
     return model_path(exercise, age_group).exists()
 
 # ── Default model paths (for legacy code using string literals) ───────────────
-DEFAULT_BICEP_MODEL  = str(model_path('bicep',  'adult'))
-DEFAULT_BACK_MODEL   = str(model_path('back',   'adult'))
-DEFAULT_CHEST_MODEL  = str(model_path('chest',  'adult'))
+DEFAULT_BICEP_CURL_MODEL    = str(model_path('bicep_curl',    'adult'))
+DEFAULT_BENT_OVER_ROW_MODEL = str(model_path('bent_over_row', 'adult'))
+DEFAULT_PUSH_UP_MODEL       = str(model_path('push_up',       'adult'))
 
 # ── Calibration ──────────────────────────────────────────────────────────────
 CALIBRATION_MAX_FILES = 5   # keep only the N most recent calibration files per user
@@ -83,16 +86,16 @@ class RepCounterConfig:
 REP_COUNTER_CONFIGS: dict[str, RepCounterConfig] = {
     # Bicep curl — primary angle: shoulder(12)→elbow(14)→wrist(16)
     # Extended arm ≈ 160-170°, fully curled ≈ 30-50°
-    'bicep': RepCounterConfig(
+    'bicep_curl': RepCounterConfig(
         top_threshold=140.0,
         bottom_threshold=60.0,
         hysteresis=10.0,
         min_rep_duration_s=0.8,
         max_rep_duration_s=8.0,
     ),
-    # Back row — primary angle: shoulder(12)→elbow(14)→wrist(16)
+    # Bent-over row — primary angle: shoulder(12)→elbow(14)→wrist(16)
     # Arm extended forward ≈ 150-170°, pulled back ≈ 40-60°
-    'back': RepCounterConfig(
+    'bent_over_row': RepCounterConfig(
         top_threshold=140.0,
         bottom_threshold=60.0,
         hysteresis=10.0,
@@ -101,7 +104,7 @@ REP_COUNTER_CONFIGS: dict[str, RepCounterConfig] = {
     ),
     # Push-up — primary angle: shoulder(12)→elbow(14)→wrist(16)
     # Arms locked out ≈ 155-170°, bottom position ≈ 60-90°
-    'chest': RepCounterConfig(
+    'push_up': RepCounterConfig(
         top_threshold=140.0,
         bottom_threshold=80.0,
         hysteresis=10.0,

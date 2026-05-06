@@ -18,7 +18,7 @@ from core.rep_counter import FrameFeatures, RepEvent
 # ---------------------------------------------------------------------------
 
 def _make_rep(
-    exercise: str = 'bicep',
+    exercise: str = 'bicep_curl',
     age_group: str = 'adult',
     features: tuple[FrameFeatures, ...] = (),
     peak: float = 160.0,
@@ -63,7 +63,7 @@ class TestFullHybridPath:
     """1. ML + rules both work → full hybrid score."""
 
     def test_bicep_full_hybrid(self) -> None:
-        scorer = FormScorer('bicep', 'adult')
+        scorer = FormScorer('bicep_curl', 'adult')
         rep = _make_rep(features=_good_features())
         result = scorer.score(rep)
 
@@ -79,13 +79,13 @@ class TestMLPlusRulesBack:
     """2. Back exercise now has real rules → full hybrid path."""
 
     def test_back_full_hybrid(self) -> None:
-        scorer = FormScorer('back', 'adult')
+        scorer = FormScorer('bent_over_row', 'adult')
         # Good-form features: low secondary (good retraction), stable
         feats = tuple(
             FrameFeatures(primary_angle=a, secondary_angle=30.0, tertiary_angle=20.0)
             for a in [150.0, 130.0, 100.0, 70.0, 50.0, 70.0, 100.0, 130.0, 150.0]
         )
-        rep = _make_rep(exercise='back', features=feats)
+        rep = _make_rep(exercise='bent_over_row', features=feats)
         result = scorer.score(rep)
 
         assert result.ml_available is True
@@ -115,7 +115,7 @@ class TestRulesOnlyDegradation:
     """3. Nonexistent age_group → ML unavailable, rules still work."""
 
     def test_bicep_rules_only(self) -> None:
-        scorer = FormScorer('bicep', 'infant')
+        scorer = FormScorer('bicep_curl', 'infant')
         rep = _make_rep(age_group='infant', features=_good_features())
         result = scorer.score(rep)
 
@@ -145,7 +145,7 @@ class TestFormScoreImmutability:
     """5. FormScore is frozen and hashable."""
 
     def test_frozen_and_hashable(self) -> None:
-        scorer = FormScorer('bicep', 'adult')
+        scorer = FormScorer('bicep_curl', 'adult')
         rep = _make_rep(features=_good_features())
         result = scorer.score(rep)
 

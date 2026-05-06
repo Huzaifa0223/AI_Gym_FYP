@@ -29,7 +29,7 @@ class ExerciseConfig:  # pylint: disable=too-many-instance-attributes
 # Age-specific configurations
 AGE_CONFIGS = {
     'children': {
-        'bicep': ExerciseConfig(
+        'bicep_curl': ExerciseConfig(
             name='bicep_curl',
             age_group='children',
             min_angle=60,  # More flexible for children
@@ -37,25 +37,25 @@ AGE_CONFIGS = {
             min_rep_time=1.5,
             max_rep_time=5.0,
             strict_mode_threshold=30,
-            model_path='data/models/bicep_children.pkl',
+            model_path='data/models/bicep_curl_children.pkl',
             flexibility_tolerance=15.0,
             speed_tolerance=1.0,
             form_strictness=0.7
         ),
-        'back': ExerciseConfig(
-            name='back_row',
+        'bent_over_row': ExerciseConfig(
+            name='bent_over_row',
             age_group='children',
             min_angle=40,
             max_angle=160,
             min_rep_time=1.5,
             max_rep_time=5.0,
             strict_mode_threshold=25,
-            model_path='data/models/back_children.pkl',
+            model_path='data/models/bent_over_row_children.pkl',
             flexibility_tolerance=15.0,
             speed_tolerance=1.0,
             form_strictness=0.7
         ),
-        'chest': ExerciseConfig(
+        'push_up': ExerciseConfig(
             name='push_up',
             age_group='children',
             min_angle=70,  # Modified push-ups allowed
@@ -63,14 +63,14 @@ AGE_CONFIGS = {
             min_rep_time=1.5,
             max_rep_time=5.0,
             strict_mode_threshold=25,
-            model_path='data/models/chest_children.pkl',
+            model_path='data/models/push_up_children.pkl',
             flexibility_tolerance=15.0,
             speed_tolerance=1.0,
             form_strictness=0.7
         )
     },
     'adult': {
-        'bicep': ExerciseConfig(
+        'bicep_curl': ExerciseConfig(
             name='bicep_curl',
             age_group='adult',
             min_angle=50,
@@ -78,25 +78,25 @@ AGE_CONFIGS = {
             min_rep_time=1.0,
             max_rep_time=4.0,
             strict_mode_threshold=25,
-            model_path='data/models/bicep_adult.pkl',
+            model_path='data/models/bicep_curl_adult.pkl',
             flexibility_tolerance=10.0,
             speed_tolerance=0.5,
             form_strictness=1.0
         ),
-        'back': ExerciseConfig(
-            name='back_row',
+        'bent_over_row': ExerciseConfig(
+            name='bent_over_row',
             age_group='adult',
             min_angle=30,
             max_angle=170,
             min_rep_time=1.0,
             max_rep_time=4.0,
             strict_mode_threshold=20,
-            model_path='data/models/back_adult.pkl',
+            model_path='data/models/bent_over_row_adult.pkl',
             flexibility_tolerance=10.0,
             speed_tolerance=0.5,
             form_strictness=1.0
         ),
-        'chest': ExerciseConfig(
+        'push_up': ExerciseConfig(
             name='push_up',
             age_group='adult',
             min_angle=50,
@@ -104,14 +104,14 @@ AGE_CONFIGS = {
             min_rep_time=1.0,
             max_rep_time=4.0,
             strict_mode_threshold=20,
-            model_path='data/models/chest_adult.pkl',
+            model_path='data/models/push_up_adult.pkl',
             flexibility_tolerance=10.0,
             speed_tolerance=0.5,
             form_strictness=1.0
         )
     },
     'senior': {
-        'bicep': ExerciseConfig(
+        'bicep_curl': ExerciseConfig(
             name='bicep_curl',
             age_group='senior',
             min_angle=70,  # More conservative range
@@ -119,25 +119,25 @@ AGE_CONFIGS = {
             min_rep_time=2.0,
             max_rep_time=6.0,
             strict_mode_threshold=35,
-            model_path='data/models/bicep_senior.pkl',
+            model_path='data/models/bicep_curl_senior.pkl',
             flexibility_tolerance=20.0,
             speed_tolerance=2.0,
             form_strictness=0.6
         ),
-        'back': ExerciseConfig(
-            name='back_row',
+        'bent_over_row': ExerciseConfig(
+            name='bent_over_row',
             age_group='senior',
             min_angle=50,
             max_angle=150,
             min_rep_time=2.0,
             max_rep_time=6.0,
             strict_mode_threshold=30,
-            model_path='data/models/back_senior.pkl',
+            model_path='data/models/bent_over_row_senior.pkl',
             flexibility_tolerance=20.0,
             speed_tolerance=2.0,
             form_strictness=0.6
         ),
-        'chest': ExerciseConfig(
+        'push_up': ExerciseConfig(
             name='push_up',
             age_group='senior',
             min_angle=80,  # Wall push-ups or modified
@@ -145,7 +145,7 @@ AGE_CONFIGS = {
             min_rep_time=2.0,
             max_rep_time=6.0,
             strict_mode_threshold=30,
-            model_path='data/models/chest_senior.pkl',
+            model_path='data/models/push_up_senior.pkl',
             flexibility_tolerance=20.0,
             speed_tolerance=2.0,
             form_strictness=0.6
@@ -328,7 +328,7 @@ def get_exercise_config(exercise_type: str, age: int) -> ExerciseConfig:
     Get appropriate exercise configuration based on age.
 
     Args:
-        exercise_type: 'bicep', 'back', or 'chest'
+        exercise_type: 'bicep_curl', 'bent_over_row', or 'push_up'
         age: User's age in years
 
     Returns:

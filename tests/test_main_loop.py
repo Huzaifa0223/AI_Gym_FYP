@@ -30,14 +30,14 @@ def test_aigymtrainer_constructs_without_io() -> None:
     # State defaults
     assert trainer.exercise_instance is None
     assert trainer.visualizer is None
-    assert trainer.exercise_type == 'bicep'
+    assert trainer.exercise_type == 'bicep_curl'
     assert trainer.age_group == 'adult'
 
 
 @pytest.mark.parametrize("exercise,age", [
-    ('bicep', 25),
-    ('back', 25),
-    ('chest', 25),
+    ('bicep_curl', 25),
+    ('bent_over_row', 25),
+    ('push_up', 25),
 ])
 def test_setup_exercise_assigns_instance(exercise: str, age: int) -> None:
     """``setup_exercise`` must populate ``exercise_instance`` for all 3 exercises."""
@@ -56,7 +56,7 @@ def test_process_frame_on_solid_frame_returns_tuple() -> None:
     import main
 
     trainer = main.AIGymTrainer()
-    trainer.setup_exercise('bicep', 25)
+    trainer.setup_exercise('bicep_curl', 25)
     frame = np.full((120, 160, 3), 32, dtype=np.uint8)
     angle_history: collections.deque[float] = collections.deque(maxlen=30)
 

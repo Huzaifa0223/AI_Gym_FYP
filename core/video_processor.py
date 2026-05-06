@@ -174,9 +174,9 @@ def _extract_chest_features(landmarks: list) -> FrameFeatures:
 
 
 _FEATURE_EXTRACTORS: dict[str, Callable[[list], FrameFeatures]] = {
-    'bicep': _extract_bicep_features,
-    'back': _extract_back_features,
-    'chest': _extract_chest_features,
+    'bicep_curl': _extract_bicep_features,
+    'bent_over_row': _extract_back_features,
+    'push_up': _extract_chest_features,
 }
 
 
