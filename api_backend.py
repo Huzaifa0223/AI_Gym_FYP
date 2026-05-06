@@ -37,6 +37,7 @@ import config as app_config
 from core.form_scorer import FormScore, FormScorer
 from core.rep_counter import RepEvent, make_rep_counter
 from core.rule_engine import FormViolation
+from core.schemas import HeadlineScore
 from core.video_processor import (
     NoFramesExtractedError,
     UnsupportedExerciseError,
@@ -153,6 +154,7 @@ class ScoreResponse(BaseModel):
     frames_with_landmarks: int
     processing_time_s: float
     reps: List[RepResult]
+    headline: Optional[HeadlineScore] = None
 
 
 def _nan_to_none(value: float) -> Optional[float]:
