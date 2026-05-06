@@ -29,7 +29,7 @@ class ExerciseModelTrainer:
         Initialize trainer
         
         Args:
-            exercise_type: 'bicep', 'back', or 'chest'
+            exercise_type: 'bicep_curl', 'bent_over_row', or 'push_up'
             age_group: 'children', 'adult', or 'senior'
         """
         self.exercise_type = exercise_type
@@ -39,19 +39,19 @@ class ExerciseModelTrainer:
         
         # Landmark indices for different exercises
         self.landmark_configs = {
-            'bicep': {
+            'bicep_curl': {
                 'shoulder': 12,
                 'elbow': 14,
                 'wrist': 16,
                 'hip': 24
             },
-            'back': {
+            'bent_over_row': {
                 'shoulder': 12,
                 'elbow': 14,
                 'wrist': 16,
                 'hip': 24
             },
-            'chest': {
+            'push_up': {
                 'shoulder': 12,
                 'elbow': 14,
                 'wrist': 16,
@@ -133,7 +133,7 @@ class ExerciseModelTrainer:
         
         print(f"[INFO] Calculating angles for {self.exercise_type}...")
         
-        if self.exercise_type == 'bicep':
+        if self.exercise_type == 'bicep_curl':
             # Primary: Elbow angle (shoulder→elbow→wrist)
             df['primary_angle'] = df.apply(
                 lambda row: self.calculate_angle(
@@ -153,7 +153,7 @@ class ExerciseModelTrainer:
                 ), axis=1
             )
 
-        elif self.exercise_type == 'back':
+        elif self.exercise_type == 'bent_over_row':
             # Primary: Elbow angle (arm pull)
             df['primary_angle'] = df.apply(
                 lambda row: self.calculate_angle(
@@ -173,7 +173,7 @@ class ExerciseModelTrainer:
                 ), axis=1
             )
 
-        elif self.exercise_type == 'chest':
+        elif self.exercise_type == 'push_up':
             # Primary: Elbow angle (push-up depth)
             df['primary_angle'] = df.apply(
                 lambda row: self.calculate_angle(
@@ -380,7 +380,7 @@ def train_all_models():
     Requires training data to be organized as:
     data/training/{exercise}_{age_group}_{label}_{timestamp}.csv
     """
-    exercises = ['bicep', 'back', 'chest']
+    exercises = ['bicep_curl', 'bent_over_row', 'push_up']
     age_groups = ['children', 'adult', 'senior']
     
     print("="*60)
@@ -433,7 +433,7 @@ def train_all_models():
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Train exercise models')
-    parser.add_argument('--exercise', choices=['bicep', 'back', 'chest'],
+    parser.add_argument('--exercise', choices=['bicep_curl', 'bent_over_row', 'push_up'],
                        help='Train specific exercise only')
     parser.add_argument('--age', choices=['children', 'adult', 'senior'],
                        help='Train specific age group only')

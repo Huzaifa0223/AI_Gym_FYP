@@ -36,7 +36,7 @@ class VideoProcessor:
         self.mp_draw = mp.solutions.drawing_utils  # type: ignore[attr-defined]
 
         # Valid exercises and age groups
-        self.valid_exercises = ['bicep', 'back', 'chest']
+        self.valid_exercises = ['bicep_curl', 'bent_over_row', 'push_up']
         self.valid_age_groups = ['children', 'adult', 'senior']
         self.label_mapping = {
             'good_form': 1,
@@ -193,7 +193,7 @@ class VideoProcessor:
         
         Args:
             video_dir: Directory containing videos
-            exercise_type: 'bicep', 'back', or 'chest'
+            exercise_type: 'bicep_curl', 'bent_over_row', or 'push_up'
             age_group: 'children', 'adult', or 'senior'
             form_type: 'good_form' or 'bad_form'
             
@@ -320,7 +320,7 @@ class VideoProcessor:
 
 def main():
     parser = argparse.ArgumentParser(description='Process exercise videos for training')
-    parser.add_argument('--exercise', choices=['bicep', 'back', 'chest'],
+    parser.add_argument('--exercise', choices=['bicep_curl', 'bent_over_row', 'push_up'],
                        help='Process specific exercise only')
     parser.add_argument('--age', choices=['children', 'adult', 'senior'],
                        help='Process specific age group only')

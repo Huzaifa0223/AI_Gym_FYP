@@ -16,7 +16,7 @@ def test_noise_injection():
     print("TEST 1: Noise Injection (Gaussian ±0.01)")
     print("="*70)
     
-    trainer = ExerciseModelTrainer('bicep', 'adult')
+    trainer = ExerciseModelTrainer('bicep_curl', 'adult')
     
     # Create sample data
     X_original = np.array([[90.0, 25.0], [85.0, 20.0], [95.0, 30.0]])
@@ -65,7 +65,7 @@ def test_angle_calculation():
     print("TEST 2: Angle Calculation")
     print("="*70)
     
-    trainer = ExerciseModelTrainer('bicep', 'adult')
+    trainer = ExerciseModelTrainer('bicep_curl', 'adult')
     
     # Create sample row with landmarks
     row = {}
@@ -165,7 +165,7 @@ def test_data_augmentation_with_noise():
     print("TEST 4: Data Augmentation (Original + Noisy)")
     print("="*70)
     
-    trainer = ExerciseModelTrainer('bicep', 'adult')
+    trainer = ExerciseModelTrainer('bicep_curl', 'adult')
     
     # Original data
     X_original = np.array([[90.0, 25.0], [85.0, 20.0], [95.0, 30.0]])
@@ -212,7 +212,7 @@ def test_create_sample_csv():
     # Create sample data with proper structure
     data = []
     
-    for exercise in ['bicep', 'back', 'chest']:
+    for exercise in ['bicep_curl', 'bent_over_row', 'push_up']:
         for age_group in ['children', 'adult', 'senior']:
             for label in [0, 1]:
                 for _ in range(10):  # 10 samples per combination
@@ -242,7 +242,7 @@ def test_create_sample_csv():
     
     # Show distribution
     print(f"\n  Data distribution:")
-    for ex in ['bicep', 'back', 'chest']:
+    for ex in ['bicep_curl', 'bent_over_row', 'push_up']:
         for age in ['children', 'adult', 'senior']:
             count = len(df[(df['exercise_type'] == ex) & (df['age_group'] == age)])
             print(f"    {ex:8} - {age:8}: {count:3} rows")
@@ -277,7 +277,7 @@ def test_trainer_initialization():
     print("TEST 6: Trainer Initialization")
     print("="*70)
     
-    exercises = ['bicep', 'back', 'chest']
+    exercises = ['bicep_curl', 'bent_over_row', 'push_up']
     ages = ['children', 'adult', 'senior']
     
     print(f"  Testing all combinations:")

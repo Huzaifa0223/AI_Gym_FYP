@@ -1,12 +1,13 @@
 """
-Train all missing exercise models (bicep/back/chest × children/adult/senior)
+Train all missing exercise models — long-form keys per Stage 5a naming:
+bicep_curl / bent_over_row / push_up × children / adult / senior.
 - Skips models that already exist in data/models/
 - Optionally runs video processing first (default: true)
 
 Usage:
-    python scripts/train_all.py               # process videos + train missing models
-    python scripts/train_all.py --skip-video  # just train missing models
-    python scripts/train_all.py --only back   # limit to one exercise
+    python scripts/train_all.py                       # process videos + train missing
+    python scripts/train_all.py --skip-video          # just train missing models
+    python scripts/train_all.py --only bicep_curl     # limit to one exercise
 """
 import argparse
 import subprocess
@@ -16,7 +17,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MODELS_DIR = ROOT / "data" / "models"
 
-EXERCISES = ["bicep", "back", "chest"]
+EXERCISES = ["bicep_curl", "bent_over_row", "push_up"]
 AGES = ["children", "adult", "senior"]
 
 MODEL_PATH = lambda ex, age: MODELS_DIR / f"{ex}_{age}.pkl"
@@ -31,6 +32,7 @@ def main():
     parser = argparse.ArgumentParser(description="Train all missing models")
     parser.add_argument("--skip-video", action="store_true", help="Skip video processing")
     parser.add_argument("--only", choices=EXERCISES, help="Train only a specific exercise")
+    # Note: legacy `--only back` callers should now use `--only bent_over_row`.
     args = parser.parse_args()
 
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
