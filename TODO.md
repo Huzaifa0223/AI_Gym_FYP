@@ -85,3 +85,6 @@
 - **WebSocket endpoint** for real-time scoring from a streaming landmark feed (not yet implemented — /api/score is one-shot video only).
 - **Progress stream** for long videos: return Server-Sent Events with per-rep scores as they close, instead of waiting for the whole video to process.
 - **Priority:** Low — current endpoint is viva-demoable as-is.
+
+## Stage 6 — Synthetic Trainer & YOLO Operationalization
+- `training/synthetic_trainer.py` provides reproducibility for the 9 RandomForest form-quality models; real-data trainer to follow in 6a.
