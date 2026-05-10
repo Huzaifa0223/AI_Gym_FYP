@@ -88,3 +88,4 @@
 
 ## Stage 6 — Synthetic Trainer & YOLO Operationalization
 - `training/synthetic_trainer.py` provides reproducibility for the 9 RandomForest form-quality models; real-data trainer to follow in 6a.
+- YOLOv8-nano runs with COCO classes; gym-specific fine-tuning queued for Stage 7.
