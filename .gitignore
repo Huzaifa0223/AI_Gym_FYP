@@ -45,3 +45,7 @@ Untitled*.ipynb
 # Stage 3 calibrator runtime outputs (committed seed_thresholds.json stays)
 exercises/*/heuristic_thresholds.json
 exercises/*/calibration_log.json
+
+# Stage 6b — YOLOv8 weights are fetched at install time, never committed
+models/*.pt
+models/*.onnx
