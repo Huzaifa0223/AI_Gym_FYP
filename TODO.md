@@ -86,6 +86,27 @@
 - **Progress stream** for long videos: return Server-Sent Events with per-rep scores as they close, instead of waiting for the whole video to process.
 - **Priority:** Low — current endpoint is viva-demoable as-is.
 
+## CNN+LSTM Form Scorer — Training Data Earmark (supervisor-mandated)
+- **Task:** Build the mandated CNN+LSTM form scorer (currently a null seam —
+  `core/cnn_lstm_scorer.py` → `NullFormQualityScorer` returns `None`).
+- **Real training data already extracted:**
+  `data/training/bicep_adult_good_form_20260207_171944.csv` holds **62 real
+  bicep good-form videos** (~14,006 frames) as full 33-landmark
+  `(x, y, z, visibility)` sequences, grouped by the `video_file` column — i.e.
+  ready CNN+LSTM input, no re-extraction needed. (gitignored; local disk only.)
+- **Decision (2026-05-30):** keep the synthetic RandomForest as the deployed
+  form classifier and route this real data to the CNN+LSTM instead — avoids the
+  real-good-vs-synthetic-bad artifact trap in the RF. See `docs/ML_FACTS.md` §2.
+- **Gaps to fill before training:**
+  - Good-form only (`label=1`). Binary good/bad needs negatives: record real
+    bad-form, or use a one-class / reconstruction framing, or pair with
+    synthetic bad-form (and document the mix honestly).
+  - Only `bicep_curl/adult` has real sequences; `bent_over_row` / `push_up`
+    have none yet.
+  - Train on Colab/Kaggle GPU; run inference locally (CLAUDE.md forbids cloud
+    inference at runtime, not cloud *training*).
+- **Priority:** High — this is the supervisor-mandated deliverable.
+
 ## Stage 6 — Synthetic Trainer & YOLO Operationalization
 - `training/synthetic_trainer.py` provides reproducibility for the 9 RandomForest form-quality models; real-data trainer to follow in 6a.
 - YOLOv8-nano runs with COCO classes; gym-specific fine-tuning queued for Stage 7.
