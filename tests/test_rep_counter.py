@@ -195,3 +195,31 @@ class TestReset:
         events = _feed_angles(counter, angles)
         assert counter.rep_count == 3
         assert len(events) == 3
+
+
+class TestIncompleteRomTurnaround:
+    """8. Reps that never re-extend past the top threshold still count via the
+    top-turnaround close — the real-world case the absolute-threshold FSM missed
+    (it returned ~0 reps on 45/62 real clips)."""
+
+    def test_incomplete_rom_reps_counted(self) -> None:
+        # top_enter = 130, but the signal only tops out at 110 — full
+        # re-extension never happens, so the old close path would yield ~0.
+        counter = _make_counter(min_dur=0.0)
+        angles = _sine_wave_angles(
+            5, samples_per_rep=60, top_angle=110.0, bottom_angle=45.0,
+        )
+        events = _feed_angles(counter, angles)
+
+        assert counter.rep_count >= 4          # turnaround recovers the reps
+        assert counter.rep_count <= 6          # without over-segmenting
+        # All closed below full re-extension — i.e. via the turnaround path.
+        assert all(ev.peak_angle < 130.0 for ev in events)
+
+    def test_clean_full_rom_still_exact(self) -> None:
+        # Full-ROM reps must be unaffected by the turnaround addition.
+        counter = _make_counter(min_dur=0.0)
+        angles = _sine_wave_angles(4, samples_per_rep=60)  # 40..160, crosses 130
+        events = _feed_angles(counter, angles)
+        assert counter.rep_count == 4
+        assert len(events) == 4

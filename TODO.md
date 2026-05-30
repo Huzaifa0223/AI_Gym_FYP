@@ -1,13 +1,23 @@
 # Future Work & Technical Debt
 
-## Rep Counter Calibration
-- **Task:** Calibrate `REP_COUNTER_CONFIGS` per-exercise using real skeleton recordings.
-- **Context:** Current values (top=140, bottom=60, hys=10) are conservative heuristics. Chest diverges slightly (bottom=80), but all require empirical tuning based on actual user data to improve accuracy across body types.
-- **Priority:** Medium (do before final FYP submission/demo).
+## Rep Counter Calibration & Segmentation
+- **Done (2026-05-31):** added a *top-turnaround* close to the FSM
+  (`core/rep_counter.py`, `RepCounterConfig.reversal_margin`) so reps count
+  without full re-extension. Real capture on the 62 bicep clips: **25 → 36 reps**
+  (0-rep videos 45 → 37). All tests green (+2 regression tests).
+- **Still under-counts real video (~36 vs ~105 estimated) — and it's not just
+  thresholds.** Real curls have a narrow ROM (~27°, e.g. 73°→100°) against
+  ~15°/frame MediaPipe jitter — a ~2:1 SNR a streaming threshold FSM can't
+  cleanly resolve — and the bottom threshold (60°) sits below the real median
+  curl-bottom (~73°). **Recommended fix:** replace/augment the threshold FSM with
+  a **prominence-based peak segmenter** (like the offline `scipy.find_peaks` the
+  trainer already uses, which recovered all ~105 reps), and calibrate
+  `REP_COUNTER_CONFIGS` to real recordings.
+- **Priority:** Medium-High (real rep counting is a visible demo behaviour, and it
+  gates the RF + rules + CNN+LSTM, which all consume segmented reps).
 - **Acceptance criteria:**
-  - Record 20+ reps per exercise per age group using `training/auto_skeleton_recorder.py`
-  - Compute per-exercise mean peak and trough angles ± 1 standard deviation
-  - Update `config.py` REP_COUNTER_CONFIGS with data-driven thresholds
+  - Record 20+ reps per exercise per age group (`training/auto_skeleton_recorder.py`)
+  - Calibrate thresholds + verify rep-count error <10% on held-out real clips
   - Add a one-line justification comment citing the sample size and date
 
 ## Back + Chest Rule Engine Calibration
@@ -85,6 +95,44 @@
 - **WebSocket endpoint** for real-time scoring from a streaming landmark feed (not yet implemented — /api/score is one-shot video only).
 - **Progress stream** for long videos: return Server-Sent Events with per-rep scores as they close, instead of waiting for the whole video to process.
 - **Priority:** Low — current endpoint is viva-demoable as-is.
+
+## CNN+LSTM Form Scorer (supervisor-mandated)
+- **Status (2026-05-30): BUILT, trained, integrated, tested — off by default.**
+  `core/cnn_lstm_model.py` (`FormQualityNet`: 1-D CNN → LSTM),
+  `core/cnn_lstm_scorer.CnnLstmFormScorer`, `training/train_cnn_lstm.py`. 86% on
+  synthetic test data; clean reps score sensibly (good ≈85 / partial ≈1). Enable
+  with `AI_GYM_ENABLE_CNN_LSTM=1`. See `docs/ML_FACTS.md` §5.
+- **Why it's not fused — two findings, both verified:**
+  1. **Rep segmentation (pipeline-wide bug):** the production FSM returns 0 reps
+     on 45 of 62 real clips (~24% capture) because it only closes a rep when the
+     arm re-extends past ~130°. Affects rep count, RF, and rules — not just the
+     CNN+LSTM. Fix: peak/turnaround segmentation in `core/rep_counter.py` (close
+     on direction reversal + smoothing). The trainer's *validation* already uses
+     peak segmentation; the live FSM still needs it.
+  2. **Sim-to-real transfer gap (the blocker for fusion):** even with proper
+     peak-segmentation, the synthetic-trained CNN+LSTM recognises only ~6% of real
+     good-form reps (real ROM ~65° vs synthetic ~113°). Synthetic tuning can't fix
+     this — it needs **real labelled sequences** (record good + bad reps, extract
+     landmark sequences, retrain). Until then it stays **not fused**.
+- **Original task (done):** build the mandated CNN+LSTM (was a null seam —
+  `NullFormQualityScorer` returning `None`).
+- **Real training data already extracted:**
+  `data/training/bicep_adult_good_form_20260207_171944.csv` holds **62 real
+  bicep good-form videos** (~14,006 frames) as full 33-landmark
+  `(x, y, z, visibility)` sequences, grouped by the `video_file` column — i.e.
+  ready CNN+LSTM input, no re-extraction needed. (gitignored; local disk only.)
+- **Decision (2026-05-30):** keep the synthetic RandomForest as the deployed
+  form classifier and route this real data to the CNN+LSTM instead — avoids the
+  real-good-vs-synthetic-bad artifact trap in the RF. See `docs/ML_FACTS.md` §2.
+- **Gaps to fill before training:**
+  - Good-form only (`label=1`). Binary good/bad needs negatives: record real
+    bad-form, or use a one-class / reconstruction framing, or pair with
+    synthetic bad-form (and document the mix honestly).
+  - Only `bicep_curl/adult` has real sequences; `bent_over_row` / `push_up`
+    have none yet.
+  - Train on Colab/Kaggle GPU; run inference locally (CLAUDE.md forbids cloud
+    inference at runtime, not cloud *training*).
+- **Priority:** High — this is the supervisor-mandated deliverable.
 
 ## Stage 6 — Synthetic Trainer & YOLO Operationalization
 - `training/synthetic_trainer.py` provides reproducibility for the 9 RandomForest form-quality models; real-data trainer to follow in 6a.

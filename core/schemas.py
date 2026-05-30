@@ -36,9 +36,10 @@ from pydantic import BaseModel, Field
 # rule engines.
 
 ALLOWED_THRESHOLD_SOURCES: Final[frozenset[str]] = frozenset({
-    "nsca",
-    "acsm",
-    "derived_from_video",
+    "nsca",                # National Strength & Conditioning Association tables
+    "acsm",                # American College of Sports Medicine guidelines
+    "derived_from_video",  # calibrator output (training/data_collector.py)
+    "synthetic",           # biomechanical prior / synthetic-trainer band, not measured
 })
 
 
@@ -131,7 +132,11 @@ class HeuristicThresholds:
                                   source. Values must be one of
                                   :data:`ALLOWED_THRESHOLD_SOURCES`
                                   (``'nsca'``, ``'acsm'``,
-                                  ``'derived_from_video'``).
+                                  ``'derived_from_video'``, ``'synthetic'``).
+                                  ``'synthetic'`` marks a hand-set
+                                  biomechanical prior (e.g. a seed file or a
+                                  synthetic-trainer band) that has not been
+                                  measured from real captures.
 
     Raises:
         ValueError: If any value in *sources* is outside

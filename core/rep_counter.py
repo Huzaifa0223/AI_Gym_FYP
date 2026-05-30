@@ -17,6 +17,11 @@ Hysteresis bands around the top and bottom thresholds prevent jitter near
 boundary angles from causing spurious state transitions.  Duration gates
 reject oscillations faster than ``min_rep_duration_s`` (e.g. sensor noise)
 and stalls longer than ``max_rep_duration_s`` (e.g. the user paused).
+
+A rep also closes on a *top turnaround* — when the angle falls back
+``reversal_margin`` degrees from its ascent peak — so reps still count when the
+lifter keeps tension and never fully re-extends past the top threshold (the
+common real-world case; the absolute threshold alone misses most real reps).
 """
 from __future__ import annotations
 
@@ -123,6 +128,9 @@ class BaseRepCounter(ABC):
         self._trough_angle: float = 360.0
         self._feature_buffer: list[FrameFeatures] = []
 
+        # Per-rep ascent peak — drives the top-turnaround close.
+        self._ascent_peak: float = 0.0
+
     # -- Public properties ---------------------------------------------------
 
     @property
@@ -200,6 +208,7 @@ class BaseRepCounter(ABC):
         self._peak_angle = 0.0
         self._trough_angle = 360.0
         self._feature_buffer = []
+        self._ascent_peak = 0.0
 
     # -- FSM internals -------------------------------------------------------
 
@@ -210,7 +219,13 @@ class BaseRepCounter(ABC):
         *,
         features: FrameFeatures | None = None,
     ) -> RepEvent | None:
-        """Run one FSM tick and return a RepEvent if a rep just closed."""
+        """Run one FSM tick and return a RepEvent if a rep just closed.
+
+        A rep closes either by full re-extension past ``top_enter`` (clean reps)
+        or by a *top turnaround* — the angle falling ``reversal_margin`` below its
+        ascent peak — which catches real reps where the lifter keeps tension and
+        never re-extends past the top threshold.
+        """
         cfg = self._config
         top_enter = cfg.top_threshold - cfg.hysteresis
         bottom_enter = cfg.bottom_threshold + cfg.hysteresis
@@ -235,17 +250,29 @@ class BaseRepCounter(ABC):
         elif state is RepState.BOTTOM:
             self._record_sample(angle, features)
             if angle > bottom_enter:
+                self._ascent_peak = angle
                 self._state = RepState.ASCENDING
                 logger.debug("BOTTOM -> ASCENDING @ %.1f deg", angle)
 
         # -- ASCENDING: angle is rising toward the top -----------------------
         elif state is RepState.ASCENDING:
             self._record_sample(angle, features)
+            self._ascent_peak = max(self._ascent_peak, angle)
             if angle >= top_enter:
+                # (a) Full re-extension past the top threshold — clean rep.
                 event = self._try_close_rep(timestamp)
                 self._state = RepState.TOP
                 logger.debug("ASCENDING -> TOP @ %.1f deg", angle)
                 return event  # RepEvent or None if duration-rejected
+            if angle <= self._ascent_peak - cfg.reversal_margin:
+                # (b) Top turnaround below full extension — close this rep and
+                # begin the next immediately (the current descent starts it).
+                event = self._try_close_rep(timestamp)
+                self._begin_rep(angle, timestamp, features)
+                self._state = RepState.DESCENDING
+                logger.debug("ASCENDING -> turnaround close @ %.1f deg (peak %.1f)",
+                             angle, self._ascent_peak)
+                return event
 
         # -- TOP: waiting for the next descent or staying at top -------------
         elif state is RepState.TOP:

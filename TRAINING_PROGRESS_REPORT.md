@@ -10,7 +10,7 @@
 ```
 Bicep:
   bicep_children   [Trained - synthetic good+bad form, 3 features, 77.2% accuracy]
-  bicep_adult      [Trained - real video + synthetic,   3 features, 96.6% accuracy]
+  bicep_adult      [Live .pkl = synthetic rebuild (96.6%); ORIG trained on 62 real good-form videos + synthetic bad — see docs/ML_FACTS.md]
   bicep_senior     [Trained - synthetic good+bad form, 3 features, 74.9% accuracy]
 
 Back:
@@ -34,6 +34,11 @@ Chest:
 - **Backup:** previous model versions preserved as `*_backup_YYYYMMDD_HHMMSS.pkl`
 
 ---
+
+> **Superseded (2026-05-30):** The sections below describe an in-progress
+> video-extraction attempt that was **not** the path used for the deployed
+> models. The shipped models are synthetic (see the table above and
+> [docs/ML_FACTS.md](docs/ML_FACTS.md)). Kept for history only.
 
 ## 📹 Video Processing Status
 

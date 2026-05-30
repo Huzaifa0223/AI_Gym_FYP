@@ -6,6 +6,15 @@
 
 ---
 
+> **⚠️ Status note (revised 2026-05-30):** This chapter describes an **earlier
+> design iteration**. The deployed system differs in important ways: the ML model
+> is **Random Forest only** (no K-Means in the scoring path), trained on
+> **synthetic** data with **3 angle features** (not 134), and accuracy varies
+> **75–97% per model** (not a single 0.87). The runtime scoring path is the
+> 3-pillar pipeline (RandomForest + rule engine + a not-yet-trained CNN+LSTM
+> seam). For the verified current picture see [`docs/ML_FACTS.md`](docs/ML_FACTS.md)
+> and [`docs/data_audit_2026-05-09.md`](docs/data_audit_2026-05-09.md).
+
 ## 5.1 Design Methodology and Software Process Model
 
 ### 5.1.1 Design Methodology: Object-Oriented Programming (OOP)
@@ -1186,20 +1195,18 @@ landmark_0_x,landmark_0_y,landmark_0_z,landmark_0_visibility,landmark_1_x,...
 
 **Pickle Format (ML Models):**
 ```python
-# File: data/models/bicep_adult.pkl
-# Contains:
+# File: data/models/bicep_curl_adult.pkl
+# Actual structure (verify with joblib.load):
 {
-  'kmeans_model': sklearn.cluster.KMeans,  # Trained on primary angles
-  'random_forest_model': sklearn.ensemble.RandomForestClassifier,  # Form quality
-  'scaler': sklearn.preprocessing.StandardScaler,  # Feature normalization
-  'metadata': {
-    'exercise': 'bicep',
-    'age_group': 'adult',
-    'training_samples': 4132,
-    'model_accuracy': 0.87,
-    'feature_names': [list of 134 feature names]
-  }
+  'type': 'supervised',
+  'model': sklearn.ensemble.RandomForestClassifier,   # 200 trees, RF only
+  'feature_cols': ['primary_angle', 'secondary_angle', 'tertiary_angle'],
+  'exercise_type': 'bicep',     # short form retained in metadata
+  'age_group': 'adult',
+  'accuracy': 0.9659,           # synthetic self-test; varies 0.75-0.97 per model
+  'noise_injection': True       # Gaussian noise augmentation during training
 }
+# No K-Means, no scaler, no 134-feature list — 3 angle features only.
 ```
 
 ---
@@ -1519,14 +1526,14 @@ Response:
 {
   "system_ready": false,
   "total_models": 9,
-  "trained_models": 1,
-  "missing_models": 8,
+  "trained_models": 9,
+  "missing_models": 0,
   "models": {
     "bicep_adult": {
       "available": true,
-      "path": "data/models/bicep_adult.pkl",
-      "accuracy": 0.87,
-      "training_samples": 4132
+      "path": "data/models/bicep_curl_adult.pkl",
+      "accuracy": 0.966,
+      "training_samples": "synthetic (see docs/ML_FACTS.md)"
     },
     "bicep_children": {
       "available": false,

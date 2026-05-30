@@ -81,6 +81,11 @@ class RepCounterConfig:
     hysteresis: float             # dead-band width (deg) to suppress jitter
     min_rep_duration_s: float     # reps shorter than this are rejected
     max_rep_duration_s: float     # reps longer than this are rejected
+    # Degrees the (smoothed) angle must fall back from its ascent peak to count as
+    # a "top turnaround" — closes a rep even when the user does NOT re-extend past
+    # ``top_threshold`` between reps (the common real-world case; the absolute
+    # threshold alone misses ~3/4 of real reps). Must exceed frame-to-frame jitter.
+    reversal_margin: float = 35.0
 
 
 REP_COUNTER_CONFIGS: dict[str, RepCounterConfig] = {

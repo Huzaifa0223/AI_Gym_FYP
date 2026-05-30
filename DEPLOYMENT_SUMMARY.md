@@ -66,7 +66,7 @@ videos/
 │   ├── children/
 │   │   └── good_form/        # 10-20 videos of kids doing bicep curls
 │   ├── adult/
-│   │   └── good_form/        # ✅ Your current 62 videos go here
+│   │   └── good_form/        # (good-form clips would go here for real-data retraining)
 │   └── senior/
 │       └── good_form/        # 10-20 videos of seniors
 │
@@ -272,7 +272,7 @@ The system automatically adapts based on age:
 ### How It Works:
 1. **Videos** → MediaPipe extracts 33 pose landmarks per frame
 2. **Landmarks** → Calculate exercise-specific angles
-3. **Angles** → Train K-Means (2 clusters: up/down) or Random Forest
+3. **Angles** → Train Random Forest classifier (the deployed models are RF; a K-Means path exists in train_universal.py but is not used)
 4. **Model** → Save to `data/models/{exercise}_{age_group}.pkl`
 
 ### Data Flow:

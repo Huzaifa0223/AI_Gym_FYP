@@ -127,7 +127,9 @@ class FormScorer:
         rule_penalty = sum(v.penalty for v in violations)
 
         # -- Combine ---------------------------------------------------------
-        final_score = self._compute_final(ml_score, ml_available, rule_penalty)
+        final_score = self._compute_final(
+            ml_score, ml_available, rule_penalty, self._rules_available
+        )
 
         return FormScore(
             rep_number=rep.rep_number,
@@ -147,10 +149,19 @@ class FormScorer:
         ml_score: float,
         ml_available: bool,
         rule_penalty: float,
+        rules_available: bool,
     ) -> float:
-        """Apply the degradation matrix to compute final_score."""
+        """Apply the degradation matrix to compute final_score.
+
+        Mirrors the four-way table in the module docstring exactly:
+        ML present → ``ml_score - penalty``; ML absent but rules present →
+        ``100 - penalty``; neither present → ``NaN`` ("no signal", which the
+        API serialises as ``null``). ``rules_available`` is required to tell
+        the rules-present-with-zero-penalty case apart from the no-rules
+        case — both yield ``rule_penalty == 0.0``.
+        """
         if ml_available:
             return max(0.0, min(100.0, ml_score - rule_penalty))
-        if rule_penalty > 0.0 or not math.isnan(rule_penalty):
+        if rules_available:
             return max(0.0, min(100.0, 100.0 - rule_penalty))
         return math.nan
