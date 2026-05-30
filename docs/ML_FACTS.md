@@ -102,21 +102,27 @@ video → VideoProcessor (MediaPipe) → per-frame 3 angles
       → ScoreAggregator: weighted fuse → HeadlineScore
 ```
 
-- **Rep counting** is a deterministic finite-state machine, not ML. Its accuracy
-  has only been tested on synthetic sine waves; it is **not empirically measured**
-  on real reps. (The "99% rep counting" claim was never measured.)
+- **Rep counting** is a deterministic finite-state machine (not ML). It closes a
+  rep on full re-extension **or a top turnaround**, so reps still count when the
+  lifter doesn't fully re-extend. On the 62 real clips it now captures ~36 reps
+  (was ~25 before the turnaround; a prominence peak-count estimates ~105), so it
+  still under-counts. Root cause: real curls have a narrow ROM (~27°, e.g.
+  73°→100°) against ~15°/frame jitter — a ~2:1 SNR a streaming threshold FSM
+  cannot cleanly resolve. Accurate real-rep counting needs a prominence-based
+  segmenter + thresholds calibrated to real recordings. (The "99% rep counting"
+  claim was never measured.)
 - **CNN+LSTM**: built, trained, integrated (`core/cnn_lstm_model.py` →
   `FormQualityNet` (1-D CNN → LSTM); scorer `CnnLstmFormScorer`; trainer
   `training/train_cnn_lstm.py`). 86% on held-out **synthetic** sequences; scores
   synthetic-shaped clean reps correctly (good ≈ 85, partial-ROM ≈ 1). It is
   **OFF by default** (`AI_GYM_ENABLE_CNN_LSTM=1` to enable). Evaluation on the 62
   real bicep clips revealed **two distinct problems** (both verified):
-  1. **Segmentation** — the production rep counter under-segments real video
-     (**0 reps on 45 of 62 clips; ~24% capture**) because it only closes a rep
-     when the arm re-extends past ~130°, which real curlers don't do between
-     reps. The trainer's real-validation now segments by curl-bottom peaks
-     (captures all ~105 reps). *This bug affects the whole pipeline (rep count,
-     RF, rules), not just the CNN+LSTM.*
+  1. **Segmentation** — the production rep counter under-segmented real video
+     (0 reps on 45 of 62 clips) because it only closed a rep on re-extension past
+     ~130°. A **top-turnaround close now ships in the live FSM** (real capture
+     25→36), and the trainer's validation segments by curl-bottom peaks (~105).
+     It still under-counts (SNR ~2:1 — see the *Rep counting* bullet above); a
+     pipeline-wide limit (rep count, RF, rules), not just the CNN+LSTM.
   2. **Sim-to-real transfer — the deeper, unfixable-by-synthetic one** — even
      with proper peak-segmentation of all 105 real reps, the synthetic-trained
      model recognises only **~6%** as good (mean 7, median 1). Real good-form
@@ -141,10 +147,11 @@ video → VideoProcessor (MediaPipe) → per-frame 3 angles
    segmentation it recognises only ~6% of real good-form curls (sim-to-real gap —
    real ROM ~65° vs synthetic ~113°; see §5). Needs real labelled training data;
    real bad-form discrimination is unvalidated.
-3. Rep-counter thresholds are uncalibrated and **demonstrably mis-segment real
-   bicep clips**: the close threshold (~130°) is too high for reps done without
-   full re-extension, yielding **0 reps on 45 of 62 real clips**. Rule thresholds
-   are likewise uncalibrated heuristics.
+3. Rep-counter: a **top-turnaround close now ships** (real capture 25→36), but
+   real counting is still limited — real curls have a narrow ROM (~27°) vs ~15°
+   jitter (~2:1 SNR), and the bottom threshold (60°) is below the real median
+   curl-bottom (~73°). Needs a prominence-based segmenter + thresholds calibrated
+   to real recordings. Rule thresholds are likewise uncalibrated heuristics.
 4. Dataset licence/provenance for `data/FYP/` is unverified.
 
 ## 7. How to talk about this honestly (viva framing)

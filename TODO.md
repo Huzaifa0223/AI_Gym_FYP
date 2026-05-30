@@ -1,13 +1,23 @@
 # Future Work & Technical Debt
 
-## Rep Counter Calibration
-- **Task:** Calibrate `REP_COUNTER_CONFIGS` per-exercise using real skeleton recordings.
-- **Context:** Current values (top=140, bottom=60, hys=10) are conservative heuristics. Chest diverges slightly (bottom=80), but all require empirical tuning based on actual user data to improve accuracy across body types.
-- **Priority:** Medium (do before final FYP submission/demo).
+## Rep Counter Calibration & Segmentation
+- **Done (2026-05-31):** added a *top-turnaround* close to the FSM
+  (`core/rep_counter.py`, `RepCounterConfig.reversal_margin`) so reps count
+  without full re-extension. Real capture on the 62 bicep clips: **25 → 36 reps**
+  (0-rep videos 45 → 37). All tests green (+2 regression tests).
+- **Still under-counts real video (~36 vs ~105 estimated) — and it's not just
+  thresholds.** Real curls have a narrow ROM (~27°, e.g. 73°→100°) against
+  ~15°/frame MediaPipe jitter — a ~2:1 SNR a streaming threshold FSM can't
+  cleanly resolve — and the bottom threshold (60°) sits below the real median
+  curl-bottom (~73°). **Recommended fix:** replace/augment the threshold FSM with
+  a **prominence-based peak segmenter** (like the offline `scipy.find_peaks` the
+  trainer already uses, which recovered all ~105 reps), and calibrate
+  `REP_COUNTER_CONFIGS` to real recordings.
+- **Priority:** Medium-High (real rep counting is a visible demo behaviour, and it
+  gates the RF + rules + CNN+LSTM, which all consume segmented reps).
 - **Acceptance criteria:**
-  - Record 20+ reps per exercise per age group using `training/auto_skeleton_recorder.py`
-  - Compute per-exercise mean peak and trough angles ± 1 standard deviation
-  - Update `config.py` REP_COUNTER_CONFIGS with data-driven thresholds
+  - Record 20+ reps per exercise per age group (`training/auto_skeleton_recorder.py`)
+  - Calibrate thresholds + verify rep-count error <10% on held-out real clips
   - Add a one-line justification comment citing the sample size and date
 
 ## Back + Chest Rule Engine Calibration
