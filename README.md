@@ -2,8 +2,8 @@
 
 ## Current Status
 - Framework, API, and tooling: **Ready**
-- Trained models: **0 / 9** (bicep/back/chest × children/adult/senior)
-- Readiness: `/ready` returns `ready: false` until models exist
+- Trained models: **9 / 9** (bicep_curl / bent_over_row / push_up × children / adult / senior) — synthetic-trained Random Forest; see [docs/ML_FACTS.md](docs/ML_FACTS.md)
+- Readiness: `/ready` returns `ready: true` (models present)
 
 ## What works now
 - Health & readiness endpoints
@@ -109,7 +109,7 @@ Content-Type: multipart/form-data
 
 Form fields:
   video      — UploadFile (mp4/mov/avi/webm, max 50 MB)
-  exercise   — one of: bicep, back, chest
+  exercise   — one of: bicep_curl, bent_over_row, push_up
   age_group  — one of: children, adult, senior
 ```
 
@@ -118,7 +118,7 @@ Form fields:
 ```bash
 curl -X POST http://localhost:8000/api/score \
      -F "video=@/path/to/workout.mp4;type=video/mp4" \
-     -F "exercise=bicep" \
+     -F "exercise=bicep_curl" \
      -F "age_group=adult"
 ```
 
@@ -126,7 +126,7 @@ curl -X POST http://localhost:8000/api/score \
 
 ```json
 {
-  "exercise": "bicep",
+  "exercise": "bicep_curl",
   "age_group": "adult",
   "total_reps": 2,
   "average_score": 82.5,

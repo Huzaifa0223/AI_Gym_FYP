@@ -35,9 +35,16 @@
 
 ## 🎯 What You Need To Do
 
-### Step 1: Get Videos (Most Important!)
-You need videos for:
-- ✅ Bicep/Adult - **You have this (62 videos)**
+> **Note (2026-05-30):** All 9 models already exist as **synthetic-trained**
+> Random Forest classifiers — see [docs/ML_FACTS.md](docs/ML_FACTS.md). The
+> video-collection steps below are **legacy/optional**; the system runs without
+> collecting any videos.
+
+### Step 1 (legacy): Collect real videos to retrain on real data
+
+This was the original plan; the shipped models are synthetic instead.
+
+- Bicep/Adult — *(a synthetic model already ships for this)*
 - ❌ Bicep/Children (8-15 age)
 - ❌ Bicep/Senior (60+ age)
 - ❌ Back/Children

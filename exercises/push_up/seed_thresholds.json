@@ -1,0 +1,20 @@
+{
+  "exercise": "push_up",
+  "rom_band": [60.0, 180.0],
+  "speed_band": [0.8, 4.0],
+  "tempo_stability_max_cv": 0.6,
+  "tempo_symmetry_min_ratio": 0.7,
+  "exercise_specific": {
+    "plank_integrity_min_mean_angle": 165.0,
+    "leg_alignment_min_mean_angle": 170.0
+  },
+  "sources": {
+    "rom_band": "synthetic",
+    "speed_band": "synthetic",
+    "tempo_stability_max_cv": "synthetic",
+    "tempo_symmetry_min_ratio": "synthetic",
+    "plank_integrity_min_mean_angle": "synthetic",
+    "leg_alignment_min_mean_angle": "synthetic"
+  },
+  "_seed_note": "Synthetic biomechanical priors mirroring core/rule_engine.py ChestRuleEngine defaults for push-ups (ROM min 60, speed 0.8-4.0s, max_cv 0.6, symmetry 0.7, plank_integrity min mean 165 deg, leg_alignment min mean 170 deg). NOT video-derived or NSCA/ACSM-sourced. The calibrator overwrites this file at runtime when run."
+}

@@ -1,0 +1,20 @@
+{
+  "exercise": "bent_over_row",
+  "rom_band": [80.0, 180.0],
+  "speed_band": [1.0, 5.0],
+  "tempo_stability_max_cv": 0.6,
+  "tempo_symmetry_min_ratio": 0.7,
+  "exercise_specific": {
+    "scapular_retraction_max_angle": 50.0,
+    "torso_stability_max_std": 15.0
+  },
+  "sources": {
+    "rom_band": "synthetic",
+    "speed_band": "synthetic",
+    "tempo_stability_max_cv": "synthetic",
+    "tempo_symmetry_min_ratio": "synthetic",
+    "scapular_retraction_max_angle": "synthetic",
+    "torso_stability_max_std": "synthetic"
+  },
+  "_seed_note": "Synthetic biomechanical priors mirroring core/rule_engine.py BackRuleEngine defaults (ROM min 80, speed 1.0-5.0s, max_cv 0.6, symmetry 0.7, scapular_retraction max 50 deg, torso_stability max_std 15 deg). NOT video-derived or NSCA/ACSM-sourced. The calibrator overwrites this file at runtime when run."
+}

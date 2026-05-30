@@ -2,6 +2,11 @@
 
 ## Test Execution Date: January 18, 2026
 
+> **Stale (2026-05-30):** This reflects an early pre-3-pillar snapshot (0/9 models
+> then, short-form exercise names, `/api/process-frame` focus). Current state: 9/9
+> synthetic models present and a 218-test pytest suite passing. See
+> [docs/ML_FACTS.md](docs/ML_FACTS.md). Kept for history.
+
 ---
 
 ## Summary

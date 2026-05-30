@@ -673,7 +673,7 @@ async def end_session(session_id: str = Form(...)):
 @app.post("/api/score", response_model=ScoreResponse)
 async def score_video(
     video: UploadFile = File(..., description="Workout video (mp4/mov/avi/webm)"),
-    exercise: str = Form(..., description="One of: bicep, back, chest"),
+    exercise: str = Form(..., description="One of: bicep_curl, bent_over_row, push_up"),
     age_group: str = Form(..., description="One of: children, adult, senior"),
 ) -> ScoreResponse:
     """Score a full workout video, rep by rep.

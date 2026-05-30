@@ -1,15 +1,15 @@
 {
   "exercise": "bicep_curl",
-  "rom_band": [0.0, 0.0],
-  "speed_band": [0.0, 0.0],
-  "tempo_stability_max_cv": 0.0,
-  "tempo_symmetry_min_ratio": 0.0,
+  "rom_band": [80.0, 180.0],
+  "speed_band": [1.0, 5.0],
+  "tempo_stability_max_cv": 0.6,
+  "tempo_symmetry_min_ratio": 0.7,
   "exercise_specific": {},
   "sources": {
-    "rom_band": "derived_from_video",
-    "speed_band": "derived_from_video",
-    "tempo_stability_max_cv": "derived_from_video",
-    "tempo_symmetry_min_ratio": "derived_from_video"
+    "rom_band": "synthetic",
+    "speed_band": "synthetic",
+    "tempo_stability_max_cv": "synthetic",
+    "tempo_symmetry_min_ratio": "synthetic"
   },
-  "_seed_note": "Placeholder seed. All values are zeroed; the calibrator overwrites this file at runtime via training/data_collector.py. Source tagging assumes video-derived values; NSCA/ACSM grounding queued in TODO.md before viva."
+  "_seed_note": "Synthetic biomechanical priors. These mirror the default thresholds hard-coded in core/rule_engine.py (BicepRuleEngine: _check_rom min_range=80, _check_speed 1.0-5.0s, _check_tempo_stability max_cv=0.6, _check_tempo_symmetry min_ratio=0.7). They document the values the rule engine actually uses; they are NOT derived from recorded video or NSCA/ACSM tables. The runtime calibrator (training/data_collector.py) overwrites this file with video-derived values when run."
 }

@@ -277,13 +277,12 @@ We have 1 model trained, need 8 more video datasets to complete."
 
 ## 📊 KEY METRICS TO MENTION
 
-- **Processing Speed:** ~30 FPS (real-time)
-- **Accuracy:** 95%+ form detection
-- **Exercises:** 3 types (bicep/back/chest)
-- **Age Groups:** 3 categories (children/adult/senior)
-- **Video Data:** 62 videos processed
-- **Training Time:** ~5 minutes per model
-- **Response Time:** <100ms per frame
+- **Exercises:** 3 types (bicep_curl / bent_over_row / push_up)
+- **Age Groups:** 3 categories (children / adult / senior)
+- **Models:** 9 Random Forest classifiers, trained on **synthetic** data
+  (synthetic self-test accuracy 75–97%; **not** validated on real reps —
+  see [docs/ML_FACTS.md](docs/ML_FACTS.md))
+- **Latency target:** <100 ms per frame (not yet benchmarked)
 
 ---
 
@@ -313,9 +312,11 @@ and get rep counts back."
 
 ### Q: "What's the accuracy?"
 ```
-"95%+ for form detection
-99%+ for rep counting
-Tested on 62 training videos"
+"The 9 Random Forest models score 75–97% on synthetic test data
+(see docs/ML_FACTS.md). They are trained on synthetic biomechanical
+data, so real-world accuracy is a limitation we have not yet measured.
+Rep counting is a deterministic state machine; its accuracy on real
+reps is likewise not yet measured."
 ```
 
 ### Q: "What's left to complete?"

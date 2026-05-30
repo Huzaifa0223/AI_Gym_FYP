@@ -94,21 +94,24 @@ class TestMLPlusRulesBack:
 
 
 class TestMLOnlyDegradation:
-    """2b. Unknown exercise (NullRuleEngine) with valid model age → ML-only."""
+    """2b. ML available + rules unavailable → ML score passes through.
 
-    def test_unknown_exercise_ml_only(self) -> None:
-        # 'deadlift' has no rule engine and no model → tests NullRuleEngine
-        # But also no model → this becomes "both fail".
-        # To test ML-only, we need a valid model + NullRuleEngine.
-        # Since all known exercises now have rule engines, the ML-only
-        # degradation path only fires for unknown exercises which also
-        # lack models — so it collapses into "both fail".
-        # We keep this test to confirm the NullRuleEngine branch works.
-        scorer = FormScorer('deadlift', 'adult')
-        rep = _make_rep(exercise='deadlift')
-        result = scorer.score(rep)
+    This matrix cell ('ML yes / rules no') is unreachable through the public
+    constructor: every exercise with a trained model also has a rule engine,
+    and every unknown exercise lacks both. So we exercise the degradation
+    function directly to keep the cell covered rather than asserting on a
+    scenario that collapses into "both fail".
+    """
 
-        assert result.rules_available is False
+    def test_ml_only_passes_ml_score_through(self) -> None:
+        # ml_available=True, rules_available=False, no penalty → final == ml_score
+        result = FormScorer._compute_final(
+            ml_score=80.0,
+            ml_available=True,
+            rule_penalty=0.0,
+            rules_available=False,
+        )
+        assert result == 80.0
 
 
 class TestRulesOnlyDegradation:
@@ -137,8 +140,11 @@ class TestBothFailDegradation:
 
         assert result.ml_available is False
         assert result.rules_available is False
-        # NullRuleEngine → 0 penalty, no ML → final = 100 - 0 = 100
-        assert result.final_score == 100.0 or math.isnan(result.final_score)
+        # No ML signal AND no rules signal → no defensible score. The
+        # degradation matrix says NaN (serialised as null by the API), NOT a
+        # spurious perfect 100. Asserting NaN exactly guards the dead-branch
+        # regression where _compute_final returned 100 - 0 = 100 here.
+        assert math.isnan(result.final_score)
 
 
 class TestFormScoreImmutability:
