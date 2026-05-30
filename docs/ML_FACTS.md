@@ -108,19 +108,20 @@ video → VideoProcessor (MediaPipe) → per-frame 3 angles
 - **CNN+LSTM**: **built and trained** (`core/cnn_lstm_model.py` →
   `FormQualityNet`: 1-D CNN → LSTM → linear head; scorer
   `core/cnn_lstm_scorer.CnnLstmFormScorer`; trainer `training/train_cnn_lstm.py`).
-  It scores a rep's angle *sequence* and reaches **86% on held-out synthetic
-  sequences**; on clean reps it discriminates well (good ≈ 85, partial-ROM ≈ 1).
-  **But** validation against the 62 real good-form bicep clips shows a
-  **sim-to-real gap**: it recognises only ~8–24% of FSM-segmented real reps,
-  because real MediaPipe trajectories are jittery (~15°/frame) and the rep
-  counter segments noisy real video into messy multi-dip windows that don't
-  resemble clean reps. **It is therefore OFF by default** (`NullFormQualityScorer`
-  stays the default; enable the experimental scorer with
-  `AI_GYM_ENABLE_CNN_LSTM=1`) — fusing it at weight 0.3 would *degrade*
-  real-video scores. The synthetic-trained model satisfies "a CNN+LSTM exists
-  and is integrated"; closing the gap needs real-data training and/or better
-  rep segmentation (smoothing). Trained on synthetic data → **not validated for
-  real bad-form discrimination.**
+  It scores a rep's angle *sequence*, reaches **86% on held-out synthetic
+  sequences**, and on clean reps discriminates correctly (good ≈ 85,
+  partial-ROM ≈ 1). It is **OFF by default** (`NullFormQualityScorer` stays the
+  default; enable the experimental scorer with `AI_GYM_ENABLE_CNN_LSTM=1`).
+  **Why it is not yet fused or fairly evaluated on real video — an upstream
+  rep-segmentation issue, not a demonstrated model flaw:** the rep counter only
+  closes a rep when the arm re-extends past ~130°, which real curlers rarely do
+  between reps, so on the 62 real clips it returns **0 reps for 45 of them** and
+  captures only **~24% of the ~105 estimated curls** (the rest merge into garbage
+  windows). The model was therefore fed malformed windows — so the earlier
+  "8–24% recognition" measured the *segmenter*, not the model. Fixing
+  segmentation (peak/turnaround detection + signal smoothing) is the prerequisite
+  to fairly scoring and then fusing it. Trained on synthetic data → real bad-form
+  discrimination remains **unvalidated** regardless.
 - **Thresholds** (`exercises/<ex>/seed_thresholds.json`) are tagged
   `"synthetic"` — they mirror the hard-coded rule-engine defaults; they are not
   video-derived or NSCA/ACSM-sourced.
@@ -128,8 +129,14 @@ video → VideoProcessor (MediaPipe) → per-frame 3 angles
 ## 6. Known limitations (state these plainly in the report)
 
 1. Models trained on synthetic priors; **no validation on real labelled reps**.
-2. CNN+LSTM not yet implemented (null seam).
-3. Rep-counter and rule thresholds are uncalibrated heuristics.
+2. CNN+LSTM is **implemented and trained on synthetic sequences** (86% synthetic,
+   off by default). It has **not been fairly evaluated on real video** because the
+   rep counter under-segments real clips (see §5); real bad-form discrimination is
+   unvalidated.
+3. Rep-counter thresholds are uncalibrated and **demonstrably mis-segment real
+   bicep clips**: the close threshold (~130°) is too high for reps done without
+   full re-extension, yielding **0 reps on 45 of 62 real clips**. Rule thresholds
+   are likewise uncalibrated heuristics.
 4. Dataset licence/provenance for `data/FYP/` is unverified.
 
 ## 7. How to talk about this honestly (viva framing)
@@ -139,8 +146,11 @@ video → VideoProcessor (MediaPipe) → per-frame 3 angles
   real-world accuracy is a stated limitation we have not yet measured."
 - ✅ "Rep counting is a deterministic FSM with hysteresis; we validated its logic
   on synthetic signals."
-- ✅ "The CNN+LSTM is architected as a pluggable scorer (the pipeline already has
-  the seam); training it on labelled landmark sequences is the next milestone."
+- ✅ "The CNN+LSTM is built, trained, and integrated — 86% on synthetic test data,
+  and it scores clean reps correctly (good ~85, partial-ROM ~1). It's off by
+  default because our rep counter doesn't yet segment real video cleanly (a
+  threshold-calibration issue); fixing that is the prerequisite to fairly
+  evaluating and then fusing it."
 - ✅ "We collected 62 real bicep good-form videos (~14k frames); that data is
   available, though the *currently deployed* bicep classifier is a synthetic
   rebuild (§2)."

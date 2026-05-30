@@ -92,13 +92,16 @@
   `core/cnn_lstm_scorer.CnnLstmFormScorer`, `training/train_cnn_lstm.py`. 86% on
   synthetic test data; clean reps score sensibly (good ≈85 / partial ≈1). Enable
   with `AI_GYM_ENABLE_CNN_LSTM=1`. See `docs/ML_FACTS.md` §5.
-- **Remaining (to fuse it into the headline score):** close the measured
-  sim-to-real gap. On the 62 real good-form clips it recognises only ~8–24% of
-  reps because (a) real MediaPipe angles are jittery (~15°/frame) and (b) the
-  rep counter mis-segments noisy real video into messy multi-dip windows.
-  Fixes: smooth the angle signal before segmentation/scoring, and/or train on
-  real labelled sequences. Until then it is intentionally **not fused** (would
-  degrade real scores).
+- **Remaining (prerequisite to fairly evaluating + fusing it):** fix real-clip
+  **rep segmentation** — the CNN+LSTM was *not* fairly tested on real video. The
+  rep counter returns **0 reps on 45 of 62 real clips** (captures only ~24% of
+  ~105 estimated curls) because it only closes a rep when the arm re-extends past
+  ~130°, which real curlers don't do between reps. The earlier "8–24%
+  recognition" measured the **segmenter, not the model**. Fix: peak/turnaround
+  segmentation (close on direction reversal, not a fixed top threshold) + signal
+  smoothing; then re-score real reps and decide on fusion. Separately, real
+  bad-form data is needed to validate bad-form discrimination. Until evaluated it
+  stays **not fused**.
 - **Original task (done):** build the mandated CNN+LSTM (was a null seam —
   `NullFormQualityScorer` returning `None`).
 - **Real training data already extracted:**
