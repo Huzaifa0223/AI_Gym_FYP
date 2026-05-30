@@ -86,9 +86,21 @@
 - **Progress stream** for long videos: return Server-Sent Events with per-rep scores as they close, instead of waiting for the whole video to process.
 - **Priority:** Low — current endpoint is viva-demoable as-is.
 
-## CNN+LSTM Form Scorer — Training Data Earmark (supervisor-mandated)
-- **Task:** Build the mandated CNN+LSTM form scorer (currently a null seam —
-  `core/cnn_lstm_scorer.py` → `NullFormQualityScorer` returns `None`).
+## CNN+LSTM Form Scorer (supervisor-mandated)
+- **Status (2026-05-30): BUILT, trained, integrated, tested — off by default.**
+  `core/cnn_lstm_model.py` (`FormQualityNet`: 1-D CNN → LSTM),
+  `core/cnn_lstm_scorer.CnnLstmFormScorer`, `training/train_cnn_lstm.py`. 86% on
+  synthetic test data; clean reps score sensibly (good ≈85 / partial ≈1). Enable
+  with `AI_GYM_ENABLE_CNN_LSTM=1`. See `docs/ML_FACTS.md` §5.
+- **Remaining (to fuse it into the headline score):** close the measured
+  sim-to-real gap. On the 62 real good-form clips it recognises only ~8–24% of
+  reps because (a) real MediaPipe angles are jittery (~15°/frame) and (b) the
+  rep counter mis-segments noisy real video into messy multi-dip windows.
+  Fixes: smooth the angle signal before segmentation/scoring, and/or train on
+  real labelled sequences. Until then it is intentionally **not fused** (would
+  degrade real scores).
+- **Original task (done):** build the mandated CNN+LSTM (was a null seam —
+  `NullFormQualityScorer` returning `None`).
 - **Real training data already extracted:**
   `data/training/bicep_adult_good_form_20260207_171944.csv` holds **62 real
   bicep good-form videos** (~14,006 frames) as full 33-landmark

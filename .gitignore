@@ -49,3 +49,8 @@ exercises/*/calibration_log.json
 # Stage 6b — YOLOv8 weights are fetched at install time, never committed
 models/*.pt
 models/*.onnx
+
+# Trained CNN+LSTM form-scorer weights — never commit trained models (cf. *.pkl).
+# Regenerate with: python -m training.train_cnn_lstm
+*.pt
+*.pth

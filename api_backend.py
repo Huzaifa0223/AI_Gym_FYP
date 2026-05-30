@@ -38,7 +38,11 @@ from core.exercise_mapping import BODY_PART_TO_EXERCISE
 
 # Video-based scoring pipeline
 import config as app_config
-from core.cnn_lstm_scorer import NullFormQualityScorer
+from core.cnn_lstm_scorer import (
+    CnnLstmFormScorer,
+    CnnLstmModelNotAvailableError,
+    NullFormQualityScorer,
+)
 from core.equipment_pipeline import (
     EquipmentStateHolder,
     run_equipment_detection_loop,
@@ -232,6 +236,7 @@ def _to_rep_result(event: RepEvent, score: FormScore) -> RepResult:
 # TestClient context manager exits promptly during pytest runs.
 
 YOLO_WEIGHTS_PATH = Path("models/yolov8n.pt")
+CNN_LSTM_WEIGHTS_PATH = Path("data/models/cnn_lstm_form_scorer.pt")
 EQUIPMENT_TASK_SHUTDOWN_TIMEOUT_S = 2.0
 
 
@@ -273,7 +278,23 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
 
     # -- Pipeline-side singletons -------------------------------------------
+    # CNN+LSTM form scorer: OFF by default. It is trained on synthetic temporal
+    # sequences and has a *measured sim-to-real gap* (see docs/ML_FACTS.md) — it
+    # recognises only a minority of real good-form reps, so fusing it into the
+    # headline score (weight 0.3) would degrade real-video results. Set
+    # AI_GYM_ENABLE_CNN_LSTM=1 to enable the experimental scorer (e.g. for a
+    # synthetic-data demo). On any load failure (missing weights, torch DLL
+    # issues) it falls back to the null scorer so the API never 500s.
     app.state.cnn_lstm_scorer = NullFormQualityScorer()
+    if os.environ.get("AI_GYM_ENABLE_CNN_LSTM") and CNN_LSTM_WEIGHTS_PATH.exists():
+        try:
+            app.state.cnn_lstm_scorer = CnnLstmFormScorer(CNN_LSTM_WEIGHTS_PATH)
+            logger.info("CNN+LSTM form scorer ENABLED (experimental, synthetic-trained)")
+        except CnnLstmModelNotAvailableError as exc:
+            logger.warning(
+                "AI_GYM_ENABLE_CNN_LSTM set but scorer failed to load (%s) — "
+                "using NullFormQualityScorer", exc,
+            )
     app.state.threshold_provider = ThresholdProvider()
 
     try:

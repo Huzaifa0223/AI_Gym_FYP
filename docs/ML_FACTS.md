@@ -105,10 +105,22 @@ video → VideoProcessor (MediaPipe) → per-frame 3 angles
 - **Rep counting** is a deterministic finite-state machine, not ML. Its accuracy
   has only been tested on synthetic sine waves; it is **not empirically measured**
   on real reps. (The "99% rep counting" claim was never measured.)
-- **CNN+LSTM**: currently a **null seam** — `core/cnn_lstm_scorer.py` ships a
-  `NullFormQualityScorer` that always returns `None`. The aggregator then drops the
-  CNN+LSTM weight. **No trained CNN+LSTM exists yet.** This is the supervisor-
-  mandated deliverable still to build.
+- **CNN+LSTM**: **built and trained** (`core/cnn_lstm_model.py` →
+  `FormQualityNet`: 1-D CNN → LSTM → linear head; scorer
+  `core/cnn_lstm_scorer.CnnLstmFormScorer`; trainer `training/train_cnn_lstm.py`).
+  It scores a rep's angle *sequence* and reaches **86% on held-out synthetic
+  sequences**; on clean reps it discriminates well (good ≈ 85, partial-ROM ≈ 1).
+  **But** validation against the 62 real good-form bicep clips shows a
+  **sim-to-real gap**: it recognises only ~8–24% of FSM-segmented real reps,
+  because real MediaPipe trajectories are jittery (~15°/frame) and the rep
+  counter segments noisy real video into messy multi-dip windows that don't
+  resemble clean reps. **It is therefore OFF by default** (`NullFormQualityScorer`
+  stays the default; enable the experimental scorer with
+  `AI_GYM_ENABLE_CNN_LSTM=1`) — fusing it at weight 0.3 would *degrade*
+  real-video scores. The synthetic-trained model satisfies "a CNN+LSTM exists
+  and is integrated"; closing the gap needs real-data training and/or better
+  rep segmentation (smoothing). Trained on synthetic data → **not validated for
+  real bad-form discrimination.**
 - **Thresholds** (`exercises/<ex>/seed_thresholds.json`) are tagged
   `"synthetic"` — they mirror the hard-coded rule-engine defaults; they are not
   video-derived or NSCA/ACSM-sourced.
