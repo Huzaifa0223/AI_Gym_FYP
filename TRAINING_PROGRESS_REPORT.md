@@ -10,7 +10,7 @@
 ```
 Bicep:
   bicep_children   [Trained - synthetic good+bad form, 3 features, 77.2% accuracy]
-  bicep_adult      [Trained - synthetic good+bad form,  3 features, 96.6% accuracy]
+  bicep_adult      [Live .pkl = synthetic rebuild (96.6%); ORIG trained on 62 real good-form videos + synthetic bad — see docs/ML_FACTS.md]
   bicep_senior     [Trained - synthetic good+bad form, 3 features, 74.9% accuracy]
 
 Back:

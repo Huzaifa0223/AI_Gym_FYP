@@ -48,6 +48,19 @@ The bands are biomechanical priors chosen by the developer, **not measured from
 recorded humans**. This is a legitimate, defensible approach *when described
 honestly* — it was used because no labelled real dataset was available (see §4).
 
+### Exception — bicep good-form data is real
+
+62 real bicep-curl videos were pose-extracted into
+`data/training/bicep_adult_good_form_20260207_171944.csv` (14,006 frames,
+**good-form only**, plus mirror augmentation). An earlier `bicep_curl/adult`
+model was trained on this **real good-form** data combined with **synthetic
+bad-form** examples. However, the **currently-deployed** `bicep_curl_adult.pkl`
+is a later (2026-05-07) `synthetic_trainer.py` batch rebuild that **overwrote**
+it — all 9 `.pkl` files share that timestamp and the short-form
+`exercise_type='bicep'` metadata of the synthetic batch. So the *live* bicep
+model is synthetic; the real 62-video data still exists in `data/training/` and
+is a strong candidate for the CNN+LSTM (real good-form sequences).
+
 ## 3. The real accuracy numbers (read from the `.pkl` files)
 
 These are **synthetic self-test accuracies** — accuracy on a held-out split of the
@@ -75,7 +88,10 @@ not been checked against real MediaPipe output.
   model** — see [`docs/data_audit_2026-05-09.md`](data_audit_2026-05-09.md).
 - `data/training/` holds 18 synthetic CSVs (good/bad × 3 exercises × 3 ages) plus
   one older real-extraction file (`bicep_adult_good_form_20260207...csv`, ~37 MB).
-- The "62 videos" claim has no traceable basis for the deployed models. Drop it.
+- The "62 videos" figure is **real**: 62 bicep good-form clips were extracted into
+  the Feb-7 CSV (§2). They trained an *earlier* bicep model; the **deployed** bicep
+  `.pkl` is a later synthetic rebuild. For all 9 models *as deployed today*, the
+  good/bad boundary is synthetic.
 
 ## 5. The actual scoring pipeline (`POST /api/score`)
 
@@ -113,5 +129,9 @@ video → VideoProcessor (MediaPipe) → per-frame 3 angles
   on synthetic signals."
 - ✅ "The CNN+LSTM is architected as a pluggable scorer (the pipeline already has
   the seam); training it on labelled landmark sequences is the next milestone."
-- ❌ Do **not** say "95% accuracy," "99% rep counting," "trained on 62 videos,"
+- ✅ "We collected 62 real bicep good-form videos (~14k frames); that data is
+  available, though the *currently deployed* bicep classifier is a synthetic
+  rebuild (§2)."
+- ❌ Do **not** say "95% accuracy," "99% rep counting," "the **deployed** model is
+  trained on 62 videos" (it is a synthetic rebuild — see §2),
   "K-Means + Random Forest," or "we didn't use deep learning."
