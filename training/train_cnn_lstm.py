@@ -32,11 +32,11 @@ from typing import Final
 
 import numpy as np
 import torch
+from scipy.signal import find_peaks
 from torch import nn
 
 import config
 from core.cnn_lstm_model import ANGLE_SCALE, SEQ_LEN, FormQualityNet, resample_sequence
-from core.rep_counter import FrameFeatures, make_rep_counter
 from utils.angle_utils import calculate_angle_3d
 
 logger = logging.getLogger(__name__)
@@ -47,6 +47,13 @@ EPOCHS: Final[int] = 25
 BATCH: Final[int] = 256
 LR: Final[float] = 1e-3
 GOOD_THRESHOLD: Final[int] = 60  # score at/above which a rep is "passing"
+# Real-clip rep segmentation for validation — peak/turnaround based, NOT the
+# production FSM (which under-segments real video: 0 reps on 45/62 clips because
+# it only closes a rep when the arm re-extends past ~130 deg; see ML_FACTS sec 5).
+# A curl = a primary-angle minimum (the curl bottom); window a fixed span around it.
+REAL_BOTTOM_MAX: Final[float] = 80.0  # primary below this counts as a curl bottom
+REAL_MIN_SEP: Final[int] = 12         # min frames between adjacent bottoms
+REAL_HALF_WIN: Final[int] = 18        # half-window (frames) sampled around a bottom
 
 # Per-exercise sequence priors (degrees), expressed as full-rep trajectories.
 # Bicep good-form secondary/tertiary baselines are CALIBRATED to the 62 real
@@ -231,29 +238,27 @@ def validate_on_real(model: FormQualityNet) -> None:
     n_videos = 0
     for _, group in df.groupby("video_file"):
         n_videos += 1
-        counter = make_rep_counter("bicep_curl", "adult")
-        for fi, (_, row) in enumerate(group.iterrows()):
-            sh, el, wr, hip = _pt(row, 12), _pt(row, 14), _pt(row, 16), _pt(row, 24)
-            primary = calculate_angle_3d(sh, el, wr)
-            ff = FrameFeatures(
-                primary_angle=primary,
-                secondary_angle=calculate_angle_3d(hip, sh, el),
-                tertiary_angle=calculate_angle_3d(hip, sh, wr),
-            )
-            ev = counter.update_angle(primary, fi / 30.0, features=ff)
-            if ev is not None and ev.feature_history:
-                seq = np.array(
-                    [[f.primary_angle, f.secondary_angle, f.tertiary_angle]
-                     for f in ev.feature_history]
-                )
-                scores.append(_score_sequence(model, seq))
+        rows = [r for _, r in group.iterrows()]
+        prim = np.array([calculate_angle_3d(_pt(r, 12), _pt(r, 14), _pt(r, 16)) for r in rows])
+        sec = np.array([calculate_angle_3d(_pt(r, 24), _pt(r, 12), _pt(r, 14)) for r in rows])
+        ter = np.array([calculate_angle_3d(_pt(r, 24), _pt(r, 12), _pt(r, 16)) for r in rows])
+        # Curl bottoms = primary-angle minima — robust to incomplete ROM, unlike
+        # the production FSM's fixed top-threshold close.
+        minima, _ = find_peaks(-prim, height=-REAL_BOTTOM_MAX, distance=REAL_MIN_SEP)
+        for m in minima:
+            a, b = max(0, m - REAL_HALF_WIN), min(len(prim), m + REAL_HALF_WIN)
+            if b - a < 6:
+                continue
+            seq = np.column_stack([prim[a:b], sec[a:b], ter[a:b]])
+            scores.append(_score_sequence(model, seq))
 
     if not scores:
         logger.warning("Real validation: 0 reps segmented from %d videos", n_videos)
         return
     arr = np.array(scores)
     logger.info("=" * 60)
-    logger.info("REAL-DATA validation (good-form only — recognition, not accuracy):")
+    logger.info("REAL-DATA validation (peak-segmented real reps; good-form only "
+                "— recognition, not accuracy):")
     logger.info("  videos=%d  reps_segmented=%d", n_videos, len(arr))
     logger.info("  score mean=%.1f  median=%.1f  min=%d  max=%d",
                 arr.mean(), np.median(arr), arr.min(), arr.max())

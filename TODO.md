@@ -92,16 +92,18 @@
   `core/cnn_lstm_scorer.CnnLstmFormScorer`, `training/train_cnn_lstm.py`. 86% on
   synthetic test data; clean reps score sensibly (good ≈85 / partial ≈1). Enable
   with `AI_GYM_ENABLE_CNN_LSTM=1`. See `docs/ML_FACTS.md` §5.
-- **Remaining (prerequisite to fairly evaluating + fusing it):** fix real-clip
-  **rep segmentation** — the CNN+LSTM was *not* fairly tested on real video. The
-  rep counter returns **0 reps on 45 of 62 real clips** (captures only ~24% of
-  ~105 estimated curls) because it only closes a rep when the arm re-extends past
-  ~130°, which real curlers don't do between reps. The earlier "8–24%
-  recognition" measured the **segmenter, not the model**. Fix: peak/turnaround
-  segmentation (close on direction reversal, not a fixed top threshold) + signal
-  smoothing; then re-score real reps and decide on fusion. Separately, real
-  bad-form data is needed to validate bad-form discrimination. Until evaluated it
-  stays **not fused**.
+- **Why it's not fused — two findings, both verified:**
+  1. **Rep segmentation (pipeline-wide bug):** the production FSM returns 0 reps
+     on 45 of 62 real clips (~24% capture) because it only closes a rep when the
+     arm re-extends past ~130°. Affects rep count, RF, and rules — not just the
+     CNN+LSTM. Fix: peak/turnaround segmentation in `core/rep_counter.py` (close
+     on direction reversal + smoothing). The trainer's *validation* already uses
+     peak segmentation; the live FSM still needs it.
+  2. **Sim-to-real transfer gap (the blocker for fusion):** even with proper
+     peak-segmentation, the synthetic-trained CNN+LSTM recognises only ~6% of real
+     good-form reps (real ROM ~65° vs synthetic ~113°). Synthetic tuning can't fix
+     this — it needs **real labelled sequences** (record good + bad reps, extract
+     landmark sequences, retrain). Until then it stays **not fused**.
 - **Original task (done):** build the mandated CNN+LSTM (was a null seam —
   `NullFormQualityScorer` returning `None`).
 - **Real training data already extracted:**
