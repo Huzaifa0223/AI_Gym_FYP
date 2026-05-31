@@ -180,6 +180,33 @@ _FEATURE_EXTRACTORS: dict[str, Callable[[list], FrameFeatures]] = {
 }
 
 
+def extract_features(exercise: str, landmarks: list) -> FrameFeatures:
+    """Compute one frame's :class:`FrameFeatures` for *exercise* from landmarks.
+
+    Public single source of truth for the primary/secondary/tertiary angle
+    definitions, shared by the batch :class:`VideoProcessor` and the live API
+    path (``/api/live-frame``) so identical poses yield identical features.
+
+    Args:
+        exercise:  Exercise key registered in :data:`_FEATURE_EXTRACTORS`.
+        landmarks: MediaPipe ``pose_landmarks.landmark`` (33 landmarks).
+
+    Returns:
+        The three-angle :class:`FrameFeatures` for this frame.
+
+    Raises:
+        UnsupportedExerciseError: If *exercise* has no registered extractor.
+    """
+    try:
+        extractor = _FEATURE_EXTRACTORS[exercise]
+    except KeyError as exc:
+        raise UnsupportedExerciseError(
+            f"Unsupported exercise {exercise!r}. "
+            f"Supported: {sorted(_FEATURE_EXTRACTORS)}"
+        ) from exc
+    return extractor(landmarks)
+
+
 # ---------------------------------------------------------------------------
 # VideoProcessor
 # ---------------------------------------------------------------------------

@@ -130,12 +130,18 @@ REP_COUNTER_CONFIGS: dict[str, RepCounterConfig] = {
 @dataclass(frozen=True)
 class RepSegmenterConfig:
     """Per-exercise parameters for the prominence-based rep segmenter."""
-    smoothing_window_frames: int = 5      # median-filter window (odd); rejects spike jitter
+    smoothing_window_seconds: float = 0.167  # median-filter window in SECONDS, converted to a frame
+                                             # count at each call site from the observed fps
+                                             # (~5 frames @30fps batch, ~1 @~5fps live). Time-based
+                                             # so one value adapts across the batch/live fps regimes.
     prominence_frac: float = 0.35         # min dip depth as a fraction of amplitude (p95-p5)
     prominence_floor_deg: float = 12.0    # absolute min dip depth; also the streaming cold-start value
     refractory_s: float = 0.8             # min seconds between counted reps (== min_rep_duration)
     amplitude_window_s: float = 5.0       # streaming: rolling window for the p95-p5 amplitude estimate
-    fps_fallback: float = 30.0            # used when frame timestamps are absent/degenerate
+    fps_fallback: float = 30.0            # batch: used when frame timestamps are absent/degenerate
+    streaming_fps_fallback: float = 6.0   # streaming cold-start ONLY (frame 1, before an inter-frame
+                                          # dt exists). Conservative so the cold-start smoothing window
+                                          # is <=1 frame and never flattens the first rep.
 
 
 REP_SEGMENTER_CONFIGS: dict[str, RepSegmenterConfig] = {
@@ -143,7 +149,7 @@ REP_SEGMENTER_CONFIGS: dict[str, RepSegmenterConfig] = {
     # exact-match 62%, within +-1 100%); RE-TUNE if a larger/cleaner real set is
     # added — these are not robust on n=13. See docs/ML_FACTS.md.
     'bicep_curl': RepSegmenterConfig(
-        smoothing_window_frames=7,
+        smoothing_window_seconds=0.233,   # ~7 frames @30fps — batch validation unchanged
         prominence_frac=0.25,
         prominence_floor_deg=18.0,
         refractory_s=1.2,

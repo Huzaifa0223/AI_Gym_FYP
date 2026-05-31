@@ -41,6 +41,11 @@ from core.rep_counter import FrameFeatures, RepEvent
 
 logger = logging.getLogger(__name__)
 
+# Streaming smoothing buffers. The runtime window is min(_MAX_SMOOTH_FRAMES,
+# round(smoothing_window_seconds * observed_fps)); the cap merely bounds memory.
+_MAX_SMOOTH_FRAMES = 64   # raw-angle buffer cap (covers any plausible fps × window)
+_FPS_EST_FRAMES = 5       # recent timestamps kept to estimate live fps (median of diffs)
+
 
 # ---------------------------------------------------------------------------
 # Shared helpers
@@ -137,9 +142,10 @@ def segment_reps_batch(
     if angles.size < 3:
         return []
 
-    smoothed = smooth_angles(angles, cfg.smoothing_window_frames)
-    prominence = _prominence(_amplitude(smoothed), cfg)
     dt = _median_dt(timestamps, cfg.fps_fallback)
+    window_frames = max(1, round(cfg.smoothing_window_seconds / dt))
+    smoothed = smooth_angles(angles, window_frames)
+    prominence = _prominence(_amplitude(smoothed), cfg)
     distance = max(1, round(cfg.refractory_s / dt))
 
     minima, _ = find_peaks(-smoothed, prominence=prominence, distance=distance)
@@ -215,7 +221,8 @@ class StreamingRepSegmenter:
 
     def reset(self) -> None:
         """Clear all streaming state."""
-        self._raw: deque[float] = deque(maxlen=max(1, self._cfg.smoothing_window_frames))
+        self._raw: deque[float] = deque(maxlen=_MAX_SMOOTH_FRAMES)
+        self._recent_ts: deque[float] = deque(maxlen=_FPS_EST_FRAMES)  # for live-fps estimate
         self._amp: deque[tuple[float, float]] = deque()  # (ts, smoothed)
         self._peak_ref = -np.inf
         self._trough = np.inf
@@ -235,7 +242,21 @@ class StreamingRepSegmenter:
     ) -> RepEvent | None:
         """Feed one frame; return a :class:`RepEvent` if a rep just closed."""
         self._raw.append(float(angle))
-        smoothed = float(np.median(self._raw))
+        self._recent_ts.append(float(timestamp))
+        # Live smoothing window in *frames*, derived from the observed fps so the
+        # SAME smoothing_window_seconds adapts across regimes (~7 frames @30fps
+        # batch, ~1 @~5fps live). fps is estimated from the FIRST available
+        # inter-frame interval (converges within ~2-3 frames) and is NOT gated on
+        # the amplitude window filling. The conservative streaming_fps_fallback is
+        # used only on frame 1, where the median over a single sample is a no-op
+        # anyway — so cold-start never over-smooths the first rep.
+        if len(self._recent_ts) >= 2:
+            dt = float(np.median(np.diff(np.fromiter(self._recent_ts, dtype=float))))
+            observed_fps = (1.0 / dt) if dt > 1e-6 else self._cfg.streaming_fps_fallback
+        else:
+            observed_fps = self._cfg.streaming_fps_fallback
+        window_frames = max(1, round(self._cfg.smoothing_window_seconds * observed_fps))
+        smoothed = float(np.median(list(self._raw)[-window_frames:]))
 
         # Rolling amplitude window; cold-start uses the floor until it fills.
         self._amp.append((timestamp, smoothed))

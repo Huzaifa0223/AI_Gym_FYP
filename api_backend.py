@@ -49,6 +49,7 @@ from core.equipment_pipeline import (
 )
 from core.form_scorer import FormScore, FormScorer
 from core.frame_buffer import LatestFrameBuffer
+from core.live_session import LiveSession
 from core.object_detector import (
     EquipmentDetector,
     StubDetector,
@@ -68,6 +69,7 @@ from core.video_processor import (
     UnsupportedExerciseError,
     VideoDecodeError,
     VideoProcessor,
+    extract_features,
 )
 
 # ===========================================
@@ -130,6 +132,31 @@ class ExerciseResponse(BaseModel):
         None,
         description="MediaPipe pose landmarks — list of 33 points, each with x, y, z (normalized 0-1) and visibility"
     )
+
+class LiveFrameResponse(BaseModel):
+    """Response for the live per-frame 3-pillar path (POST /api/live-frame).
+
+    Field names mirror what the React CameraWorkout already reads, so repointing
+    the frontend is a URL change. Cadence: ``counter`` / ``primary_angle`` /
+    ``landmarks`` update every frame; ``rep_quality`` / ``feedback`` update only
+    on rep close and hold last-known between reps. ``rep_quality`` is ``null``
+    until the first rep so the UI shows a neutral "—", never a misleading 0%.
+    """
+    success: bool = Field(..., description="False on no-pose / pre-detection frames")
+    counter: int = Field(..., description="Running rep count (StreamingRepSegmenter)")
+    primary_angle: float = Field(..., description="This frame's primary joint angle (deg)")
+    rep_quality: Optional[float] = Field(
+        None,
+        description="Fused 0-100 form score; null until the first rep closes, then held",
+    )
+    feedback: str = Field(..., description="Coaching text; neutral pre-first-rep, then held")
+    landmarks: Optional[List[Dict[str, float]]] = Field(
+        None, description="MediaPipe pose landmarks (33 points) or null on no-pose"
+    )
+    session_id: str
+    api_version: str = Field(default="2.1.0")
+    latency_ms: Optional[float] = None
+    timestamp: str
 
 class UserProfile(BaseModel):
     user_id: str
@@ -246,6 +273,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # -- Buffers + monotonic frame counter ----------------------------------
     app.state.frame_buffer = LatestFrameBuffer()
     app.state.frame_counter = itertools.count()
+
+    # -- Live per-frame 3-pillar sessions (StreamingRepSegmenter + FormScorer +
+    # ScoreAggregator), one LiveSession per session_id, used by /api/live-frame.
+    # Separate from ExerciseManager.sessions (the legacy /api/process-frame path)
+    # so both paths stay reachable.
+    app.state.live_sessions = {}
 
     # -- Equipment detector (real if weights present, stub otherwise) -------
     if YOLO_WEIGHTS_PATH.exists():
@@ -629,6 +662,136 @@ async def process_frame(request: ExerciseRequest):
         logger.error(f"Processing error: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Processing error: {str(e)}")
 
+
+def _age_to_group(age: int) -> str:
+    """Map a numeric age to the model age-group key.
+
+    Mirrors the boundaries used by ``/api/process-frame`` (children < 16,
+    adult < 60, senior otherwise) so the live path loads the same RF model.
+    """
+    if age < 16:
+        return 'children'
+    if age < 60:
+        return 'adult'
+    return 'senior'
+
+
+def _get_live_session(session_id: str, exercise_type: str, age_group: str) -> LiveSession:
+    """Get or create the :class:`LiveSession` for *session_id*.
+
+    Created lazily on the first live frame (so ``/api/start-session`` stays
+    unchanged). If the same session_id is reused for a *different* exercise
+    (the user switched exercises), the session is reset so the count restarts
+    with the correct config.
+    """
+    store = app.state.live_sessions
+    session = store.get(session_id)
+    if session is None or session.exercise != exercise_type:
+        session = LiveSession(
+            exercise_type, age_group,
+            cnn_lstm_scorer=app.state.cnn_lstm_scorer,
+        )
+        store[session_id] = session
+    return session
+
+
+@app.post("/api/live-frame", response_model=LiveFrameResponse)
+async def live_frame(request: ExerciseRequest):
+    """Score a single live-camera frame with the 3-pillar streaming pipeline.
+
+    Unlike legacy ``/api/process-frame`` (per-exercise heuristics + RF on every
+    frame), this drives a session-scoped :class:`~core.live_session.LiveSession`:
+    StreamingRepSegmenter counts reps, and FormScorer + ScoreAggregator run only
+    when a rep closes. ``exercise_type`` is required (no auto-detect on the live
+    path). Per-frame work stays within the existing process-frame budget; form
+    scoring is amortised to rep close.
+    """
+    start_time = time.time()
+
+    try:
+        session_id = request.session_id or str(uuid.uuid4())
+
+        exercise_type = request.exercise_type
+        if not exercise_type or exercise_type not in EXERCISES:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"/api/live-frame requires exercise_type in {EXERCISES} "
+                    f"(got {exercise_type!r})"
+                ),
+            )
+
+        # Decode base64 image
+        image_data = base64.b64decode(request.frame_data)
+        nparr = np.frombuffer(image_data, np.uint8)
+        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        if frame is None:
+            raise HTTPException(status_code=400, detail="Invalid image data")
+
+        height, width = frame.shape[:2]
+        if height > MAX_IMAGE_DIMENSION or width > MAX_IMAGE_DIMENSION:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Image dimensions {width}x{height} exceed maximum {MAX_IMAGE_DIMENSION}px",
+            )
+
+        # Tee the frame into the equipment task's buffer (same as legacy path).
+        if hasattr(app.state, "frame_buffer"):
+            try:
+                _frame_id = next(app.state.frame_counter)
+                app.state.frame_buffer.set(frame, _frame_id, int(time.time() * 1000))
+            except Exception:  # pylint: disable=broad-except
+                logger.exception("frame_buffer.set raised; continuing")
+
+        age_group = _age_to_group(request.age)
+        session = _get_live_session(session_id, exercise_type, age_group)
+
+        # Pose estimation (reuse the shared MediaPipe Pose instance).
+        image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        results = exercise_manager.pose.process(image_rgb)
+
+        if not results.pose_landmarks:
+            latency_ms = (time.time() - start_time) * 1000
+            return LiveFrameResponse(
+                success=False,
+                counter=session.rep_count,         # hold the count across no-pose frames
+                primary_angle=0.0,
+                rep_quality=session.last_form_score,   # held; None pre-first-rep
+                feedback="No pose detected",
+                landmarks=None,
+                session_id=session_id,
+                latency_ms=latency_ms,
+                timestamp=datetime.now().isoformat(),
+            )
+
+        landmarks_data = [
+            {"x": lm.x, "y": lm.y, "z": lm.z, "visibility": lm.visibility}
+            for lm in results.pose_landmarks.landmark
+        ]
+
+        features = extract_features(exercise_type, results.pose_landmarks.landmark)
+        frame_result = session.process_features(features, time.monotonic())
+
+        latency_ms = (time.time() - start_time) * 1000
+        return LiveFrameResponse(
+            success=True,
+            counter=frame_result.counter,
+            primary_angle=frame_result.primary_angle,
+            rep_quality=frame_result.rep_quality,
+            feedback=frame_result.feedback,
+            landmarks=landmarks_data,
+            session_id=session_id,
+            latency_ms=latency_ms,
+            timestamp=datetime.now().isoformat(),
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Live-frame error: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Processing error: {str(e)}")
+
+
 @app.post("/api/start-session")
 async def start_session(
     user_id: str = Form(...),
@@ -670,6 +833,11 @@ async def start_session(
 @app.post("/api/end-session")
 async def end_session(session_id: str = Form(...)):
     """End a workout session and get summary"""
+    # Free any live (3-pillar) session state for this id, regardless of whether a
+    # legacy exercise session also exists. Additive — does not affect the summary.
+    if hasattr(app.state, "live_sessions"):
+        app.state.live_sessions.pop(session_id, None)
+
     if session_id not in exercise_manager.sessions:
         raise HTTPException(status_code=404, detail="Session not found")
     

@@ -162,7 +162,8 @@ def main() -> int:
         for fr in GRID_FRAC:
             for fl in GRID_FLOOR:
                 for rf in GRID_REFRACTORY:
-                    cfg = RepSegmenterConfig(smoothing_window_frames=w, prominence_frac=fr,
+                    # grid is in frames; store as seconds (harness ts are @FPS).
+                    cfg = RepSegmenterConfig(smoothing_window_seconds=w / FPS, prominence_frac=fr,
                                              prominence_floor_deg=fl, refractory_s=rf)
                     det = {n: _detect(angles[n], cfg) for n in tune}
                     w1, ex, mae = _metrics(tune, det, true)
@@ -171,7 +172,9 @@ def main() -> int:
                         best = (score, cfg)
     score, cfg = best
     print("\n=== 4. TUNED PARAMS (locked on tune set) ===")
-    print(f"  smoothing_window_frames={cfg.smoothing_window_frames}  prominence_frac={cfg.prominence_frac}"
+    print(f"  smoothing_window_seconds={cfg.smoothing_window_seconds:.3f} "
+          f"(~{round(cfg.smoothing_window_seconds * FPS)} frames @{FPS:.0f}fps)  "
+          f"prominence_frac={cfg.prominence_frac}"
           f"  prominence_floor_deg={cfg.prominence_floor_deg}  refractory_s={cfg.refractory_s}")
     print(f"  tune-set front: within+-1={score[0]:.0%}  exact={score[1]:.0%}  MAE={-score[2]:.2f}")
 
