@@ -25,6 +25,26 @@
     data exists (trade-off: re-introduces prep-move over-count like clip 43).
   - Tuning harness: `tools/tune_rep_segmenter.py` (dedup/split/grid/held-out eval).
 
+## Live Path Convergence — `/api/live-frame` (2026-05-31)
+- **Shipped:** the React live camera now drives the 3-pillar pipeline via
+  `POST /api/live-frame` — `core/live_session.LiveSession` wraps the
+  `StreamingRepSegmenter`, `FormScorer`, and `ScoreAggregator` (form scoring on
+  rep close, counter every frame). Legacy `/api/process-frame` is untouched and
+  still reachable.
+- **Smoothing is now time-based** (`RepSegmenterConfig.smoothing_window_seconds`)
+  so one value adapts across fps regimes (~7 frames @30fps batch, ~1 @~5fps live);
+  added `streaming_fps_fallback` for cold-start. **Batch held-out numbers are
+  byte-identical after the change** (front exact 62%, within ±1 100%).
+- **UNVALIDATED — live-cadence rep accuracy.** The batch numbers were measured at
+  ~30fps on uploaded clips; the live feed runs at ~5fps with ~10–15 samples/rep —
+  a harder regime. **Do NOT present the batch 62%/100% as the live number.** The
+  10-curl on-camera smoke test (count ≈ 10) has not been run yet. **If it under/
+  over-counts, add a separate `REP_SEGMENTER_LIVE_CONFIGS` (live endpoint reads
+  it; batch `REP_SEGMENTER_CONFIGS` stays as-is), tune bicep there, and document
+  BOTH regimes here.** Until then, live accuracy is unmeasured.
+- **Cadence (intentional):** `rep_quality`/`feedback` update on rep close and hold
+  between reps; `rep_quality` is `null` (UI shows "—") until the first rep.
+
 ## Back + Chest Rule Engine Calibration
 - **Task:** Empirically tune rule thresholds using recorded good-form / bad-form samples.
 - **Current heuristic values:**

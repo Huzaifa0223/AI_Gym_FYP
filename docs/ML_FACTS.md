@@ -121,6 +121,12 @@ video → VideoProcessor (MediaPipe) → per-frame 3 angles
   - SIDE/BACK angles reported separately (geometrically distorted; not the metric).
   - **Params tuned on only n=13 front clips** → **re-tune if a larger/cleaner real
     set is added.** (The old "99% rep counting" claim was never measured.)
+  - **Live path (2026-05-31):** the React camera now scores via `POST /api/live-frame`
+    (the streaming segmenter, one `LiveSession` per session). Smoothing is now
+    time-based so the same config adapts across fps. **Live-cadence accuracy (~5fps,
+    ~10–15 samples/rep) is UNVALIDATED** — the 62%/100% above are **batch (~30fps)**
+    numbers, not live. The 10-curl on-camera smoke test is pending; a separate
+    live-regime param set may be needed. See `TODO.md` "Live Path Convergence".
 - **CNN+LSTM**: built, trained, integrated (`core/cnn_lstm_model.py` →
   `FormQualityNet` (1-D CNN → LSTM); scorer `CnnLstmFormScorer`; trainer
   `training/train_cnn_lstm.py`). 86% on held-out **synthetic** sequences; scores
