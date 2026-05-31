@@ -74,7 +74,7 @@ def _primary_angles(group: pd.DataFrame) -> np.ndarray:
 
 def _run_current_counter(angles: np.ndarray) -> tuple[int, list[tuple[float, float, str, bool]]]:
     """Feed the angle series through the CURRENT FSM; return (count, trace rows)."""
-    counter = make_rep_counter("bicep_curl", "adult")
+    counter = make_rep_counter("bicep_curl", "adult", counter="fsm")  # baseline FSM
     rows: list[tuple[float, float, str, bool]] = []
     for i, a in enumerate(angles):
         event = counter.update_angle(float(a), i / FPS)

@@ -7,8 +7,9 @@ PipelineResult`` call:
 
 * :class:`core.video_processor.VideoProcessor` — frames → per-frame
   features (Stage 0/4 of the original audit).
-* :func:`core.rep_counter.make_rep_counter` — frames → :class:`RepEvent`
-  closures (Stage 1).
+* :func:`core.rep_segmenter.segment_reps_batch` — frames → :class:`RepEvent`
+  closures via whole-video prominence segmentation (Stage C; replaced the
+  per-frame FSM loop for /api/score).
 * :class:`core.form_scorer.FormScorer` — per-rep ML score + rule
   penalties (Stage 1, kept unchanged for the per-rep API contract).
 * :class:`core.threshold_provider.ThresholdProvider` — fail-fast lookup
@@ -36,10 +37,13 @@ import logging
 import time
 from dataclasses import dataclass
 
+import numpy as np
+
 from core.cnn_lstm_scorer import FormQualityScorer, NullFormQualityScorer
 from core.config import ScoreAggregatorWeights
 from core.form_scorer import FormScore, FormScorer
-from core.rep_counter import RepEvent, make_rep_counter
+from core.rep_counter import FrameFeatures, RepEvent
+from core.rep_segmenter import segment_reps_batch
 from core.schemas import HeadlineScore
 from core.score_aggregator import aggregate
 from core.threshold_provider import ThresholdProvider
@@ -155,28 +159,36 @@ class ScoringPipeline:
         # the video bytes if the exercise has no thresholds shipped.
         self._threshold_provider.load(exercise)
 
-        # 2. Run the per-frame loop, collect per-rep scores.
+        # 2. Decode all frames, then BATCH-segment reps over the whole video
+        # (global-prominence find_peaks — the accurate path for uploaded video;
+        # the streaming segmenter is for the future live feed). Stage C.
         start = time.monotonic()
         per_rep: list[PerRepScore] = []
         frames_processed = 0
-        frames_with_landmarks = 0
+        angles: list[float] = []
+        timestamps: list[float] = []
+        feats: list[FrameFeatures] = []
 
         with VideoProcessor(exercise) as vp:
-            counter = make_rep_counter(exercise, age_group)
             scorer = FormScorer(exercise, age_group)
             for pf in vp.process_bytes(video_bytes):
                 frames_processed += 1
                 if not pf.landmarks_detected:
                     continue
-                frames_with_landmarks += 1
-                event = counter.update_angle(
-                    pf.primary_angle,
-                    pf.timestamp,
-                    features=pf.features,
-                )
-                if event is not None:
-                    score = scorer.score(event)
-                    per_rep.append(PerRepScore(event=event, score=score))
+                angles.append(pf.primary_angle)
+                timestamps.append(pf.timestamp)
+                feats.append(pf.features)
+
+        frames_with_landmarks = len(angles)
+        events = segment_reps_batch(
+            np.asarray(angles, dtype=float),
+            np.asarray(timestamps, dtype=float),
+            exercise,
+            age_group,
+            features=feats,
+        )
+        for event in events:
+            per_rep.append(PerRepScore(event=event, score=scorer.score(event)))
 
         processing_time_s = time.monotonic() - start
 

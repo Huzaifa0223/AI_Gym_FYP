@@ -37,7 +37,7 @@ from config import RepCounterConfig, REP_COUNTER_CONFIGS
 from utils.angle_utils import calculate_angle_3d
 
 if TYPE_CHECKING:
-    pass  # reserved for future type-only imports
+    from core.rep_segmenter import StreamingRepSegmenter
 
 logger = logging.getLogger(__name__)
 
@@ -419,23 +419,39 @@ _COUNTER_CLASSES: dict[str, type[BaseRepCounter]] = {
 }
 
 
-def make_rep_counter(exercise: str, age_group: str = 'adult') -> BaseRepCounter:
-    """Create the correct rep counter for *exercise*.
+def make_rep_counter(
+    exercise: str,
+    age_group: str = 'adult',
+    *,
+    counter: str = 'segmenter',
+) -> BaseRepCounter | StreamingRepSegmenter:
+    """Create a rep counter for *exercise*.
 
     Args:
         exercise:  One of ``'bicep_curl'``, ``'bent_over_row'``, ``'push_up'``.
         age_group: One of ``'children'``, ``'adult'``, ``'senior'``.
+        counter:   ``'segmenter'`` (default) returns the prominence-based
+                   :class:`~core.rep_segmenter.StreamingRepSegmenter` — the
+                   accurate path for real video (Stage C). ``'fsm'`` returns the
+                   legacy finite-state-machine :class:`BaseRepCounter`, kept
+                   reachable for comparison and graceful fallback.
 
     Returns:
-        A fully initialised :class:`BaseRepCounter` subclass instance.
+        A counter exposing ``update_angle(angle, ts, *, features=None)`` and a
+        ``rep_count`` property (both the FSM and the streaming segmenter satisfy
+        this interface).
 
     Raises:
-        ValueError: If *exercise* is not recognised.
+        ValueError: If *exercise* or *counter* is not recognised.
     """
-    cls = _COUNTER_CLASSES.get(exercise)
-    if cls is None:
+    if exercise not in _COUNTER_CLASSES:
         raise ValueError(
-            f"Unknown exercise {exercise!r}. "
-            f"Supported: {sorted(_COUNTER_CLASSES)}"
+            f"Unknown exercise {exercise!r}. Supported: {sorted(_COUNTER_CLASSES)}"
         )
-    return cls(age_group=age_group)
+    if counter == 'fsm':
+        return _COUNTER_CLASSES[exercise](age_group=age_group)
+    if counter == 'segmenter':
+        # Lazy import avoids a module cycle (rep_segmenter imports RepEvent here).
+        from core.rep_segmenter import StreamingRepSegmenter
+        return StreamingRepSegmenter(exercise, age_group)
+    raise ValueError(f"Unknown counter {counter!r}; use 'segmenter' or 'fsm'")

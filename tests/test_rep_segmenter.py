@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from config import RepSegmenterConfig
 from core.rep_counter import FrameFeatures
 from core.rep_segmenter import (
     StreamingRepSegmenter,
@@ -20,6 +21,9 @@ from core.rep_segmenter import (
 )
 
 FPS = 30.0
+# Fixed default params so these algorithm tests are independent of the deployed
+# per-exercise tuning in REP_SEGMENTER_CONFIGS (which Stage C changed for bicep).
+_CFG = RepSegmenterConfig()
 
 
 def _reps(n: int, spr: int = 60, top: float = 160.0, bottom: float = 40.0) -> np.ndarray:
@@ -34,14 +38,14 @@ def _ts(angles: np.ndarray) -> np.ndarray:
 
 
 def _stream_count(angles: np.ndarray, ts: np.ndarray) -> int:
-    seg = StreamingRepSegmenter("bicep_curl", "adult")
+    seg = StreamingRepSegmenter("bicep_curl", "adult", config=_CFG)
     for a, t in zip(angles, ts):
         seg.update_angle(float(a), float(t))
     return seg.rep_count
 
 
 def _batch_count(angles: np.ndarray, ts: np.ndarray) -> int:
-    return count_reps_batch(angles, ts, "bicep_curl")
+    return count_reps_batch(angles, ts, "bicep_curl", config=_CFG)
 
 
 # ---------------------------------------------------------------------------
@@ -157,7 +161,7 @@ class TestRepEventShape:
         ang = _reps(3)
         ts = _ts(ang)
         feats = [FrameFeatures(float(a), 10.0, 20.0) for a in ang]
-        events = segment_reps_batch(ang, ts, "bicep_curl", "adult", features=feats)
+        events = segment_reps_batch(ang, ts, "bicep_curl", "adult", features=feats, config=_CFG)
         assert len(events) == 3
         ev = events[0]
         assert ev.exercise_name == "bicep_curl" and ev.age_group == "adult"

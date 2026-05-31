@@ -139,9 +139,16 @@ class RepSegmenterConfig:
 
 
 REP_SEGMENTER_CONFIGS: dict[str, RepSegmenterConfig] = {
-    # bicep_curl is tuned against real clips in Stage C; row/push_up keep defaults
-    # until they have real recordings (real-data calibration queued in TODO.md).
-    'bicep_curl':    RepSegmenterConfig(),
+    # bicep_curl tuned 2026-05-31 on 13 front-facing real clips (held-out front
+    # exact-match 62%, within +-1 100%); RE-TUNE if a larger/cleaner real set is
+    # added — these are not robust on n=13. See docs/ML_FACTS.md.
+    'bicep_curl': RepSegmenterConfig(
+        smoothing_window_frames=7,
+        prominence_frac=0.25,
+        prominence_floor_deg=18.0,
+        refractory_s=1.2,
+    ),
+    # row / push_up keep defaults — no real recordings yet (calibration queued, TODO.md).
     'bent_over_row': RepSegmenterConfig(),
     'push_up':       RepSegmenterConfig(),
 }

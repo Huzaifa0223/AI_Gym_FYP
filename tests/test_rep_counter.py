@@ -148,10 +148,16 @@ class TestFactory:
         ('bent_over_row', BackRepCounter),
         ('push_up', ChestRepCounter),
     ])
-    def test_correct_subclass(self, exercise: str, expected_cls: type) -> None:
-        counter = make_rep_counter(exercise, age_group='adult')
+    def test_fsm_subclass(self, exercise: str, expected_cls: type) -> None:
+        # Stage C made the prominence segmenter the default; FSM is opt-in.
+        counter = make_rep_counter(exercise, age_group='adult', counter='fsm')
         assert isinstance(counter, expected_cls)
         assert isinstance(counter, BaseRepCounter)
+
+    def test_default_is_segmenter(self) -> None:
+        from core.rep_segmenter import StreamingRepSegmenter
+        counter = make_rep_counter('bicep_curl', age_group='adult')
+        assert isinstance(counter, StreamingRepSegmenter)
 
     def test_unknown_exercise_raises(self) -> None:
         with pytest.raises(ValueError, match="Unknown exercise"):
