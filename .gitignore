@@ -54,3 +54,7 @@ models/*.onnx
 # Regenerate with: python -m training.train_cnn_lstm
 *.pt
 *.pth
+
+# Rep-counter diagnostic traces / plots — regenerate via tools/diagnose_rep_counter.py.
+# (calibration/ ground-truth CSVs are NOT ignored — they are human input, committed.)
+diagnostics/

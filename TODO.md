@@ -1,24 +1,29 @@
 # Future Work & Technical Debt
 
-## Rep Counter Calibration & Segmentation
-- **Done (2026-05-31):** added a *top-turnaround* close to the FSM
-  (`core/rep_counter.py`, `RepCounterConfig.reversal_margin`) so reps count
-  without full re-extension. Real capture on the 62 bicep clips: **25 → 36 reps**
-  (0-rep videos 45 → 37). All tests green (+2 regression tests).
-- **Still under-counts real video (~36 vs ~105 estimated) — and it's not just
-  thresholds.** Real curls have a narrow ROM (~27°, e.g. 73°→100°) against
-  ~15°/frame MediaPipe jitter — a ~2:1 SNR a streaming threshold FSM can't
-  cleanly resolve — and the bottom threshold (60°) sits below the real median
-  curl-bottom (~73°). **Recommended fix:** replace/augment the threshold FSM with
-  a **prominence-based peak segmenter** (like the offline `scipy.find_peaks` the
-  trainer already uses, which recovered all ~105 reps), and calibrate
-  `REP_COUNTER_CONFIGS` to real recordings.
-- **Priority:** Medium-High (real rep counting is a visible demo behaviour, and it
-  gates the RF + rules + CNN+LSTM, which all consume segmented reps).
-- **Acceptance criteria:**
-  - Record 20+ reps per exercise per age group (`training/auto_skeleton_recorder.py`)
-  - Calibrate thresholds + verify rep-count error <10% on held-out real clips
-  - Add a one-line justification comment citing the sample size and date
+## Rep Counting — Prominence Segmenter (Stage C DONE 2026-05-31)
+- **Shipped as the default counting path:** `core/rep_segmenter.py`. `/api/score`
+  uses `segment_reps_batch` (whole-video `find_peaks`); the live feed uses
+  `StreamingRepSegmenter` via `make_rep_counter(...)`. The legacy FSM stays
+  reachable via `make_rep_counter(..., counter='fsm')` (graceful fallback). Earlier
+  step: FSM top-turnaround close (`RepCounterConfig.reversal_margin`).
+- **Honest accuracy on real bicep (measured on the batch path /api/score runs;
+  62 clips deduped of re-encoded copies, bad-form excluded, side/back separate):**
+  - Held-out **FRONT exact-match 62% (n=8)**; **within ±1 100%** — but within-±1 is
+    **generous** on this single-rep-dominated set (0/1/2 all pass; multi-rep ≤ 4).
+  - **FRONT multi-rep exact ~75% (n=8 all-unique)**; held-out multi-rep is only
+    **n=3 → indicative, not robust**.
+  - One **real miss**: clip 47 (true 2, detected 1) — shallow rep below
+    `prominence_floor_deg=18`. Other gaps are definitional (clip 43 prep-move
+    over-count; clip 7 ambiguous half-rep).
+- **Params tuned on ONLY n=13 front clips** (`REP_SEGMENTER_CONFIGS['bicep_curl']`
+  = window 7 / frac 0.25 / floor 18 / refractory 1.2). **RE-TUNE if a larger or
+  cleaner real set is added** — not robust at n=13.
+- **Remaining:**
+  - `bent_over_row` / `push_up` keep DEFAULT segmenter params — real-data
+    calibration queued (no real recordings; verify they don't regress on synthetic).
+  - Revisit `prominence_floor_deg` to catch clip-47-type shallow reps once more
+    data exists (trade-off: re-introduces prep-move over-count like clip 43).
+  - Tuning harness: `tools/tune_rep_segmenter.py` (dedup/split/grid/held-out eval).
 
 ## Back + Chest Rule Engine Calibration
 - **Task:** Empirically tune rule thresholds using recorded good-form / bad-form samples.

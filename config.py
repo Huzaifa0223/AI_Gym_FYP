@@ -117,3 +117,38 @@ REP_COUNTER_CONFIGS: dict[str, RepCounterConfig] = {
         max_rep_duration_s=8.0,
     ),
 }
+
+
+# ── Rep Segmenter (smoothed, amplitude-relative prominence) ──────────────────
+# Used by core.rep_segmenter (batch find_peaks for /api/score; streaming online
+# detector for the live path). A rep is one curl-bottom: a local minimum of the
+# median-smoothed primary angle, confirmed by a rebound of at least the
+# amplitude-relative prominence and spaced at least `refractory_s` from the prior
+# rep. Amplitude-relative prominence makes it robust to the shifted/narrow real
+# ROM band (~80-120 deg) measured on the bicep clips.
+
+@dataclass(frozen=True)
+class RepSegmenterConfig:
+    """Per-exercise parameters for the prominence-based rep segmenter."""
+    smoothing_window_frames: int = 5      # median-filter window (odd); rejects spike jitter
+    prominence_frac: float = 0.35         # min dip depth as a fraction of amplitude (p95-p5)
+    prominence_floor_deg: float = 12.0    # absolute min dip depth; also the streaming cold-start value
+    refractory_s: float = 0.8             # min seconds between counted reps (== min_rep_duration)
+    amplitude_window_s: float = 5.0       # streaming: rolling window for the p95-p5 amplitude estimate
+    fps_fallback: float = 30.0            # used when frame timestamps are absent/degenerate
+
+
+REP_SEGMENTER_CONFIGS: dict[str, RepSegmenterConfig] = {
+    # bicep_curl tuned 2026-05-31 on 13 front-facing real clips (held-out front
+    # exact-match 62%, within +-1 100%); RE-TUNE if a larger/cleaner real set is
+    # added — these are not robust on n=13. See docs/ML_FACTS.md.
+    'bicep_curl': RepSegmenterConfig(
+        smoothing_window_frames=7,
+        prominence_frac=0.25,
+        prominence_floor_deg=18.0,
+        refractory_s=1.2,
+    ),
+    # row / push_up keep defaults — no real recordings yet (calibration queued, TODO.md).
+    'bent_over_row': RepSegmenterConfig(),
+    'push_up':       RepSegmenterConfig(),
+}

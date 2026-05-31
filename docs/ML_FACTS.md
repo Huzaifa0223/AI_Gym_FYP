@@ -102,15 +102,25 @@ video → VideoProcessor (MediaPipe) → per-frame 3 angles
       → ScoreAggregator: weighted fuse → HeadlineScore
 ```
 
-- **Rep counting** is a deterministic finite-state machine (not ML). It closes a
-  rep on full re-extension **or a top turnaround**, so reps still count when the
-  lifter doesn't fully re-extend. On the 62 real clips it now captures ~36 reps
-  (was ~25 before the turnaround; a prominence peak-count estimates ~105), so it
-  still under-counts. Root cause: real curls have a narrow ROM (~27°, e.g.
-  73°→100°) against ~15°/frame jitter — a ~2:1 SNR a streaming threshold FSM
-  cannot cleanly resolve. Accurate real-rep counting needs a prominence-based
-  segmenter + thresholds calibrated to real recordings. (The "99% rep counting"
-  claim was never measured.)
+- **Rep counting** is a deterministic **prominence-based segmenter** (not ML), now
+  the default: `/api/score` uses whole-video `find_peaks` (`segment_reps_batch`),
+  the live feed uses the streaming variant, and the old FSM is kept reachable via
+  `make_rep_counter(..., counter='fsm')`. Median smoothing + amplitude-relative
+  prominence + a refractory period replace the FSM's absolute gates (which missed
+  ~3/4 of real reps). **Honest accuracy on the 62 real bicep clips** (measured on
+  the batch path `/api/score` runs, after deduping re-encoded copies, excluding
+  bad-form demos, and bucketing side/back angles separately):
+  - Held-out **FRONT exact-match 62% (n=8)**; **within ±1 = 100%** — but within-±1
+    is **generous** here (the set is single-rep-dominated, where 0/1/2 all pass,
+    and multi-rep tops out at 4 reps).
+  - **FRONT multi-rep exact ~75% (n=8, all unique tune+held)**; held-out multi-rep
+    is only **n=3**, so that figure is **indicative, not robust**.
+  - One **real miss** (clip 47: true 2, detected 1 — a shallow rep below
+    `prominence_floor_deg=18`); the other held-out gaps are definitional (clip 43
+    prep-move over-count, clip 7 ambiguous half-rep).
+  - SIDE/BACK angles reported separately (geometrically distorted; not the metric).
+  - **Params tuned on only n=13 front clips** → **re-tune if a larger/cleaner real
+    set is added.** (The old "99% rep counting" claim was never measured.)
 - **CNN+LSTM**: built, trained, integrated (`core/cnn_lstm_model.py` →
   `FormQualityNet` (1-D CNN → LSTM); scorer `CnnLstmFormScorer`; trainer
   `training/train_cnn_lstm.py`). 86% on held-out **synthetic** sequences; scores
