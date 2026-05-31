@@ -34,13 +34,28 @@ within a strict latency budget.
 > `python -m scripts.fetch_yolo_weights`. The fetch script requires network
 > access; runtime loading from the local file is offline.
 
+### Product UI & app-data service (front of the stack)
+
+The product UI is a **React + Vite** single-page app, served by a local
+**Node/Express + SQLite** app-data service (user accounts, session/workout
+history). This is **application-data plumbing, not ML**: all pose estimation,
+rep counting, and form scoring run in the Python edge process with **no cloud
+inference**. The original FYP proposal specified a React / Node / MySQL stack;
+SQLite is the local-dev substitute for MySQL. The UI talks to the Python ML
+service over HTTP (`POST /api/live-frame` for the live camera path,
+`POST /api/score` for uploaded video).
+
 ### FORBIDDEN technologies (never introduce)
 
-- React / Node.js / npm / yarn / any JavaScript build tool
-- MySQL / PostgreSQL / any external database
-- Streamlit / Flask / Django
+- Streamlit / Flask / Django (no second Python web framework — FastAPI is canonical)
 - Docker / Kubernetes (out of scope for FYP hardware target)
-- Any cloud inference endpoint (OpenAI, AWS, GCP, Azure AI)
+- **Any cloud inference endpoint (OpenAI, AWS, GCP, Azure AI).** This is the
+  hard line: ML inference stays on-device. Cloud *training* (Colab/Kaggle GPU)
+  is allowed; cloud *runtime inference* is not.
+
+> Removed from this list (2026-05-31): the React/Node/npm and MySQL/external-DB
+> bans. The shipped product uses them for the UI + app-data tier (above); the
+> ban predated that decision and conflicted with the product as built.
 
 ---
 
