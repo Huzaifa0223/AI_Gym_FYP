@@ -111,6 +111,20 @@ class TestLiveSession:
             assert res.counter >= last_counter  # monotonic non-decreasing
             last_counter = res.counter
 
+    def test_live_cadence_5fps_end_to_end(self) -> None:
+        # The live feed runs at ~5 fps, not the 30 fps the other tests use. Feed at
+        # dt=0.2s and confirm the segmenter + scorer still count and score a rep.
+        session = LiveSession("bicep_curl", "adult", config=_CFG)
+        feats = _cosine_features(5, spr=12)  # 12 samples/rep
+        dt = 0.2
+        scored = False
+        for i, f in enumerate(feats):
+            res = session.process_features(f, i * dt)
+            if res.rep_quality is not None:
+                scored = True
+        assert abs(session.rep_count - 5) <= 1
+        assert scored and isinstance(session.last_form_score, float)
+
 
 # ---------------------------------------------------------------------------
 # HTTP endpoint tests

@@ -154,6 +154,56 @@ class TestStreamingColdStart:
         assert _stream_count(ang, ts) == 4
 
 
+class TestLowFpsCadence:
+    """Live-cadence coverage (~5 fps). The other tests run at 30 fps, where the
+    time-based smoothing window (smoothing_window_seconds / dt) reduces to the old
+    fixed-5-frame behavior. At ~5 fps the window collapses to ~1 frame (≈ no
+    smoothing) and a rep is only ~12 samples — the regime the live feed actually
+    runs in, and the make-or-break of the time-based-smoothing change.
+    """
+
+    @staticmethod
+    def _reps_dt(n: int, spr: int, dt: float, top: float = 160.0, bottom: float = 40.0):
+        t = np.linspace(0.0, n * 2 * np.pi, n * spr, endpoint=False)
+        ang = (top + bottom) / 2.0 + (top - bottom) / 2.0 * np.cos(t)
+        ts = np.arange(ang.size) * dt
+        return ang, ts
+
+    def test_clean_5fps_counts_exact(self) -> None:
+        # 5 reps, 12 samples/rep, dt=0.2s (5 fps). The adaptive window converges to
+        # ~1 frame; a clean signal still counts exactly.
+        ang, ts = self._reps_dt(5, 12, 0.2)
+        assert count_reps_batch(ang, ts, "bicep_curl", config=_CFG) == 5
+        seg = StreamingRepSegmenter("bicep_curl", "adult", config=_CFG)
+        for a, t in zip(ang, ts):
+            seg.update_angle(float(a), float(t))
+        assert abs(seg.rep_count - 5) <= 1
+
+    def test_5fps_impulse_spikes_not_inflated(self) -> None:
+        # With ~1-frame window there is effectively NO smoothing, but the refractory
+        # debounce + amplitude-relative prominence still keep impulse spikes from
+        # inflating the count. (If a future change breaks that, this catches the
+        # over-count before the live smoke test does.)
+        ang, ts = self._reps_dt(5, 12, 0.2)
+        ang = ang.copy()
+        ang[::5] += 30.0  # +30 deg single-frame spikes
+        seg = StreamingRepSegmenter("bicep_curl", "adult", config=_CFG)
+        for a, t in zip(ang, ts):
+            seg.update_angle(float(a), float(t))
+        assert 4 <= seg.rep_count <= 6   # not massively over-counted
+
+    def test_wider_window_engages_at_low_fps(self) -> None:
+        # The live-tuning lever: a larger smoothing_window_seconds yields a >1-frame
+        # window even at 5 fps (round(0.5 * 5) = 2-3), and still counts clean reps.
+        from config import RepSegmenterConfig
+        wide = RepSegmenterConfig(smoothing_window_seconds=0.5)
+        ang, ts = self._reps_dt(5, 12, 0.2)
+        seg = StreamingRepSegmenter("bicep_curl", "adult", config=wide)
+        for a, t in zip(ang, ts):
+            seg.update_angle(float(a), float(t))
+        assert abs(seg.rep_count - 5) <= 1
+
+
 class TestRepEventShape:
     """Batch RepEvents carry trajectory, feature_history, and identity fields."""
 

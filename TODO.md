@@ -38,10 +38,17 @@
 - **UNVALIDATED — live-cadence rep accuracy.** The batch numbers were measured at
   ~30fps on uploaded clips; the live feed runs at ~5fps with ~10–15 samples/rep —
   a harder regime. **Do NOT present the batch 62%/100% as the live number.** The
-  10-curl on-camera smoke test (count ≈ 10) has not been run yet. **If it under/
-  over-counts, add a separate `REP_SEGMENTER_LIVE_CONFIGS` (live endpoint reads
-  it; batch `REP_SEGMENTER_CONFIGS` stays as-is), tune bicep there, and document
-  BOTH regimes here.** Until then, live accuracy is unmeasured.
+  10-curl on-camera smoke test (count ≈ 10) has not been run yet. Until then, live
+  accuracy is unmeasured.
+  - At ~5fps the time-based smoothing window collapses to **~1 frame (≈ no
+    smoothing)**. Synthetic tests (`TestLowFpsCadence`, `test_live_cadence_5fps`)
+    show the refractory debounce + amplitude-relative prominence still keep clean
+    and impulse-spiky counts robust — but synthetic jitter ≠ real MediaPipe jitter.
+  - **If the real smoke test OVER-counts (jitter, the likely failure mode at
+    1-frame smoothing): RAISE `smoothing_window_seconds` (≈0.4–0.6s → 2–3 frames
+    @5fps)** via a new `REP_SEGMENTER_LIVE_CONFIGS` (live endpoint reads it; batch
+    `REP_SEGMENTER_CONFIGS` stays as-is). If it under-counts, revisit prominence.
+    Either way, **document BOTH regimes (batch ~30fps / live ~5fps) here.**
 - **Cadence (intentional):** `rep_quality`/`feedback` update on rep close and hold
   between reps; `rep_quality` is `null` (UI shows "—") until the first rep.
 
