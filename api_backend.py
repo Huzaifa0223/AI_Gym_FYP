@@ -1144,4 +1144,7 @@ async def readiness_check():
 # ===========================================
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # Local-only demo: bind loopback so the API isn't exposed on the LAN. Override
+    # with AI_GYM_HOST=0.0.0.0 if you intentionally need off-box access.
+    host = os.environ.get("AI_GYM_HOST", "127.0.0.1")
+    uvicorn.run(app, host=host, port=8000)

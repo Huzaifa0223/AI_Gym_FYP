@@ -1,0 +1,9 @@
+// This file contains the Shoulders, Abdominal, and Legs exercises to be added
+// Due to file size, creating this as a reference
+
+The complete exercises should include:
+1. Shoulders - all variations
+2. Abdominal - all variations  
+3. Legs - all variations
+
+Each following the same pattern as Chest, Biceps, Triceps, and Back.

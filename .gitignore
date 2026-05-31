@@ -58,3 +58,16 @@ models/*.onnx
 # Rep-counter diagnostic traces / plots — regenerate via tools/diagnose_rep_counter.py.
 # (calibration/ ground-truth CSVs are NOT ignored — they are human input, committed.)
 diagnostics/
+
+# Frontend (React/Vite + Node/Express) — track SOURCE only, never deps/secrets/db/logs.
+# (frontend/web_app/FYP1/.gitignore also covers these; this is the repo-level net so
+#  protection survives even if that nested .gitignore is ever removed.)
+frontend/**/node_modules/
+frontend/**/dist/
+frontend/**/dist-ssr/
+frontend/**/.env
+frontend/**/.env.*
+frontend/**/*.sqlite
+frontend/**/*.sqlite-journal
+frontend/**/*.log
+frontend/**/sqlmap_*.log
