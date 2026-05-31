@@ -60,15 +60,15 @@ interface MLResponse {
   success: boolean;
   counter: number;
   feedback: string;
-  stage: string;
+  stage?: string;
   primary_angle: number;
-  secondary_angle: number;
-  rep_quality: number;
-  confidence: number;
-  detected_exercise: string;
-  is_valid_rep: boolean;
-  model_missing: boolean;
-  degraded: boolean;
+  secondary_angle?: number;
+  rep_quality: number | null;   // live path: null until the first rep closes
+  confidence?: number;
+  detected_exercise?: string;
+  is_valid_rep?: boolean;
+  model_missing?: boolean;
+  degraded?: boolean;
   session_id: string;
   latency_ms: number;
   landmarks?: PoseLandmark[];
@@ -106,6 +106,7 @@ export function CameraWorkout({ exercise, userAge = 25, onComplete, onBack }: Ca
   const frameLoopRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const qualityHistoryRef = useRef<number[]>([]);
   const mistakesSetRef = useRef<Set<string>>(new Set());
+  const lastFeedbackRef = useRef<string | null>(null); // dedupe held/neutral feedback
   const isProcessingRef = useRef(false); // prevent overlapping API calls
 
   // Check ML backend health on mount
@@ -236,7 +237,7 @@ export function CameraWorkout({ exercise, userAge = 25, onComplete, onBack }: Ca
       };
       if (sid) body.session_id = sid;
 
-      const res = await fetch(`${ML_API}/api/process-frame`, {
+      const res = await fetch(`${ML_API}/api/live-frame`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -259,8 +260,12 @@ export function CameraWorkout({ exercise, userAge = 25, onComplete, onBack }: Ca
       }
       if (typeof data.primary_angle === 'number') setPrimaryAngle(Math.round(data.primary_angle));
 
-      // Feedback message
-      if (data.feedback) {
+      // Feedback updates on rep close and holds between reps. The live backend
+      // returns the held (or neutral pre-first-rep) message every frame, so
+      // dedupe identical consecutive messages to keep the panel from filling
+      // with repeats — this realises the per-rep cadence without spam.
+      if (data.feedback && data.feedback !== lastFeedbackRef.current) {
+        lastFeedbackRef.current = data.feedback;
         const quality = data.rep_quality ?? 75;
         const type = classifyFeedback(quality, data.feedback);
         setCurrentFeedback(prev => [...prev, { type, message: data.feedback, timestamp: Date.now() }].slice(-3));
@@ -316,6 +321,7 @@ export function CameraWorkout({ exercise, userAge = 25, onComplete, onBack }: Ca
     setPrimaryAngle(null);
     qualityHistoryRef.current = [];
     mistakesSetRef.current = new Set();
+    lastFeedbackRef.current = null;
 
     const sid = await startMLSession();
     setSessionId(sid);
