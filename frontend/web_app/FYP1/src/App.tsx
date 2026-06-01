@@ -23,6 +23,7 @@ export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('landing');
   const [user, setUser] = useState<User | null>(null);
   const [selectedExercise, setSelectedExercise] = useState<string>('');
+  const [selectedMuscleGroup, setSelectedMuscleGroup] = useState<string>('');
   const [workoutSession, setWorkoutSession] = useState<WorkoutSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -67,8 +68,13 @@ export default function App() {
     setCurrentScreen('workout-selection');
   };
 
-  const handleExerciseSelect = (exercise: string, mode: 'camera' | 'manual') => {
+  const handleExerciseSelect = (
+    exercise: string,
+    mode: 'camera' | 'manual',
+    muscleGroup = '',
+  ) => {
     setSelectedExercise(exercise);
+    setSelectedMuscleGroup(muscleGroup);  // authoritative for ML routing in CameraWorkout
     setCurrentScreen(mode);
   };
 
@@ -149,6 +155,7 @@ export default function App() {
       {currentScreen === 'camera' && selectedExercise && (
         <CameraWorkout
           exercise={selectedExercise}
+          muscleGroup={selectedMuscleGroup}
           userAge={user?.age}
           onComplete={handleWorkoutComplete}
           onBack={() => setCurrentScreen('workout-selection')}

@@ -5,7 +5,7 @@ import { getFilteredExercises, weeklySchedule, getAgeGroup, getLevel, type Exerc
 
 interface WorkoutSelectionProps {
   user: User;
-  onExerciseSelect: (exerciseName: string, mode: 'camera' | 'manual') => void;
+  onExerciseSelect: (exerciseName: string, mode: 'camera' | 'manual', muscleGroup: string) => void;
   onBack: () => void;
 }
 
@@ -158,7 +158,7 @@ export function WorkoutSelection({ user, onExerciseSelect, onBack }: WorkoutSele
               <ExerciseCard
                 key={exercise.name}
                 exercise={exercise}
-                onSelect={(mode) => onExerciseSelect(exercise.name, mode)}
+                onSelect={(mode) => onExerciseSelect(exercise.name, mode, exercise.muscleGroup)}
               />
             ))
           )}

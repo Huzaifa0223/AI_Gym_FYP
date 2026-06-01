@@ -3,6 +3,13 @@ import { ArrowLeft, Camera, Play, Square, AlertCircle, CheckCircle, XCircle, Wif
 
 const ML_API = 'http://localhost:8000';
 
+// Live overlay cadence. The backend answers in ~25ms (measured from the live
+// trace), so the old 150ms (~6.7fps) was the bottleneck, not latency; 80ms
+// (~12fps) roughly halves the visible skeleton lag and stays within the
+// ≤100ms/frame budget. The isProcessingRef guard drops a tick if a frame ever
+// overruns, so this never pipelines overlapping requests.
+const FRAME_INTERVAL_MS = 80;
+
 // MediaPipe Pose connections — upper + lower body skeleton
 const POSE_CONNECTIONS: [number, number][] = [
   [11, 12], // shoulders
@@ -17,13 +24,29 @@ const POSE_CONNECTIONS: [number, number][] = [
 type MLExerciseType = 'bicep_curl' | 'bent_over_row' | 'push_up';
 
 /**
- * Map a free-form UI exercise name to the long-form key the FastAPI ML
- * service expects. Returns null when the named exercise isn't in the
- * ML service's supported set (legs, shoulders, triceps, abdominal),
- * which the caller treats as a terminal "not supported yet" state
- * rather than a session-start failure.
+ * Resolve the long-form ML exercise key the FastAPI service expects.
+ *
+ * The exercise's `muscleGroup` is AUTHORITATIVE (project charter §11's
+ * body-part → exercise map: Biceps → bicep_curl, Back → bent_over_row,
+ * Chest → push_up). Muscle groups without an ML model (Triceps, Shoulders,
+ * Legs, Abdominal) return null, which the caller treats as a terminal
+ * "not supported yet" state.
+ *
+ * Name matching is only a fallback for callers that don't pass a muscleGroup;
+ * it is deliberately NOT used when one is given, because exercise names leak
+ * across muscle groups — e.g. a triceps "Pushdown" contains "push", and
+ * "Bench Dips" / "Close-Grip Bench Press" contain "bench", so name matching
+ * silently misroutes them to push_up.
  */
-function toMLExerciseType(exercise: string): MLExerciseType | null {
+function toMLExerciseType(exercise: string, muscleGroup?: string): MLExerciseType | null {
+  if (muscleGroup) {
+    switch (muscleGroup.toLowerCase()) {
+      case 'biceps': return 'bicep_curl';
+      case 'back':   return 'bent_over_row';
+      case 'chest':  return 'push_up';
+      default:       return null; // triceps, shoulders, legs, abdominal — no model
+    }
+  }
   const name = exercise.toLowerCase();
   if (name.includes('bicep') || name.includes('curl')) return 'bicep_curl';
   if (name.includes('back') || name.includes('row') || name.includes('pull')) return 'bent_over_row';
@@ -76,12 +99,13 @@ interface MLResponse {
 
 interface CameraWorkoutProps {
   exercise: string;
+  muscleGroup?: string;   // authoritative source for ML routing (see toMLExerciseType)
   userAge?: number;
   onComplete: (session: { exerciseName: string; reps: number; accuracy: number; mistakes: string[] }) => void;
   onBack: () => void;
 }
 
-export function CameraWorkout({ exercise, userAge = 25, onComplete, onBack }: CameraWorkoutProps) {
+export function CameraWorkout({ exercise, muscleGroup, userAge = 25, onComplete, onBack }: CameraWorkoutProps) {
   const [isWorkoutActive, setIsWorkoutActive] = useState(false);
   const [countdown, setCountdown] = useState(3);
   const [showCountdown, setShowCountdown] = useState(false);
@@ -95,8 +119,8 @@ export function CameraWorkout({ exercise, userAge = 25, onComplete, onBack }: Ca
   const [sessionId, setSessionId] = useState<string | null>(null);
 
   const mlExerciseType = useMemo<MLExerciseType | null>(
-    () => toMLExerciseType(exercise),
-    [exercise],
+    () => toMLExerciseType(exercise, muscleGroup),
+    [exercise, muscleGroup],
   );
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -297,7 +321,7 @@ export function CameraWorkout({ exercise, userAge = 25, onComplete, onBack }: Ca
     }
 
     const sid = sessionId;
-    frameLoopRef.current = setInterval(() => processFrame(sid), 150); // ~6-7 fps
+    frameLoopRef.current = setInterval(() => processFrame(sid), FRAME_INTERVAL_MS);
 
     return () => {
       if (frameLoopRef.current) { clearInterval(frameLoopRef.current); frameLoopRef.current = null; }
