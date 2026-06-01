@@ -59,6 +59,15 @@ models/*.onnx
 # (calibration/ ground-truth CSVs are NOT ignored — they are human input, committed.)
 diagnostics/
 
+# Runtime logs + dev/debug scratch. The app writes logs/gym_trainer_<date>.log;
+# opt-in live traces land here too (logs/live_trace*.jsonl via AI_GYM_LIVE_TRACE).
+# Regenerable — never committed.
+logs/
+
+# Ultralytics training run outputs (weights/plots/metrics from
+# training/finetune_equipment_yolo.py). Regenerable; artifacts stay on disk.
+runs/
+
 # Frontend (React/Vite + Node/Express) — track SOURCE only, never deps/secrets/db/logs.
 # (frontend/web_app/FYP1/.gitignore also covers these; this is the repo-level net so
 #  protection survives even if that nested .gitignore is ever removed.)
