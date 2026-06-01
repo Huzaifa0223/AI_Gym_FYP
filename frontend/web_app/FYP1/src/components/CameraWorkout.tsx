@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { ArrowLeft, Camera, Play, Square, AlertCircle, CheckCircle, XCircle, Wifi, WifiOff } from 'lucide-react';
+import { ArrowLeft, Camera, Play, Square, AlertCircle, CheckCircle, XCircle, Wifi, WifiOff, Dumbbell } from 'lucide-react';
 
 const ML_API = 'http://localhost:8000';
 
@@ -97,6 +97,14 @@ interface MLResponse {
   landmarks?: PoseLandmark[];
 }
 
+// One equipment detection from GET /api/equipment (YOLOv8, ~1Hz on the backend).
+interface EquipmentDetection {
+  label: string;
+  confidence: number;
+  bbox_xyxy: number[];
+  frame_id_detected: number;
+}
+
 interface CameraWorkoutProps {
   exercise: string;
   muscleGroup?: string;   // authoritative source for ML routing (see toMLExerciseType)
@@ -117,6 +125,7 @@ export function CameraWorkout({ exercise, muscleGroup, userAge = 25, onComplete,
   const [primaryAngle, setPrimaryAngle] = useState<number | null>(null);
   const [mlOnline, setMlOnline] = useState<boolean | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [equipment, setEquipment] = useState<EquipmentDetection[]>([]);
 
   const mlExerciseType = useMemo<MLExerciseType | null>(
     () => toMLExerciseType(exercise, muscleGroup),
@@ -327,6 +336,39 @@ export function CameraWorkout({ exercise, muscleGroup, userAge = 25, onComplete,
       if (frameLoopRef.current) { clearInterval(frameLoopRef.current); frameLoopRef.current = null; }
     };
   }, [isWorkoutActive, sessionId, processFrame, mlExerciseType]);
+
+  // Poll the YOLOv8 equipment detector (~1Hz on the backend) while working out.
+  // Equipment state is only fresh during a workout — frames are teed to the
+  // detector from the live-frame loop — so we poll only then. Non-critical:
+  // failures are swallowed and just leave the panel empty.
+  useEffect(() => {
+    if (!isWorkoutActive || mlExerciseType === null) {
+      setEquipment([]);
+      return;
+    }
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const res = await fetch(`${ML_API}/api/equipment`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled && Array.isArray(data.detections)) {
+          setEquipment(data.detections as EquipmentDetection[]);
+        }
+      } catch { /* equipment is non-critical — ignore transient errors */ }
+    };
+    poll();
+    const id = setInterval(poll, 1500);  // backend updates at ~1Hz; no point faster
+    return () => { cancelled = true; clearInterval(id); };
+  }, [isWorkoutActive, mlExerciseType]);
+
+  // Unique equipment labels (best confidence each), most-confident first.
+  const detectedEquipment = useMemo(() => {
+    const best = new Map<string, number>();
+    for (const d of equipment) best.set(d.label, Math.max(best.get(d.label) ?? 0, d.confidence));
+    return Array.from(best, ([label, confidence]) => ({ label, confidence }))
+      .sort((a, b) => b.confidence - a.confidence);
+  }, [equipment]);
 
   // ── Workout controls ────────────────────────────────────────────────────────
 
@@ -541,6 +583,31 @@ export function CameraWorkout({ exercise, muscleGroup, userAge = 25, onComplete,
                   <p className="text-gray-400">{exercise} Demo</p>
                 </div>
               </div>
+            </div>
+
+            {/* Detected Equipment (YOLOv8, ~1Hz) */}
+            <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
+              <h3 className="text-white mb-3 flex items-center gap-2">
+                <Dumbbell className="w-5 h-5 text-cyan-400" />
+                Equipment Detected
+              </h3>
+              {detectedEquipment.length === 0 ? (
+                <p className="text-gray-400">
+                  {isWorkoutActive ? 'Scanning for equipment…' : 'Start workout to detect equipment'}
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {detectedEquipment.map(eq => (
+                    <span
+                      key={eq.label}
+                      className="px-3 py-1.5 rounded-lg bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 text-sm capitalize"
+                    >
+                      {eq.label}{' '}
+                      <span className="text-cyan-400/70">{Math.round(eq.confidence * 100)}%</span>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Real-time AI Feedback */}
