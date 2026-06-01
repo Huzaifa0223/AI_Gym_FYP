@@ -23,7 +23,7 @@ import logging
 import math
 from dataclasses import dataclass
 
-from config import RepSegmenterConfig
+from config import LIVE_VISIBILITY_GATE, RepSegmenterConfig
 from core.cnn_lstm_scorer import FormQualityScorer, NullFormQualityScorer
 from core.form_scorer import FormScorer
 from core.rep_counter import FrameFeatures, RepEvent
@@ -49,12 +49,16 @@ class LiveFrameResult:
                        then held between reps.
         feedback:      Coaching string; neutral pre-first-rep, then held.
         rep_closed:    ``True`` iff a rep closed on this frame.
+        gated:         ``True`` iff the frame was skipped by the visibility gate
+                       (pose present but the primary-angle joints were poorly
+                       tracked), so its angle was NOT fed to the segmenter.
     """
     counter: int
     primary_angle: float
     rep_quality: float | None
     feedback: str
     rep_closed: bool
+    gated: bool = False
 
 
 class LiveSession:
@@ -95,19 +99,42 @@ class LiveSession:
         return self._segmenter.rep_count
 
     def process_features(
-        self, features: FrameFeatures, timestamp: float
+        self,
+        features: FrameFeatures,
+        timestamp: float,
+        *,
+        min_visibility: float | None = None,
     ) -> LiveFrameResult:
         """Feed one frame of features; score the rep if one just closed.
 
         Args:
-            features:  This frame's :class:`FrameFeatures` (from
-                       :func:`core.video_processor.extract_features`).
-            timestamp: Monotonic seconds; the segmenter uses only differences.
+            features:       This frame's :class:`FrameFeatures` (from
+                            :func:`core.video_processor.extract_features`).
+            timestamp:      Monotonic seconds; the segmenter uses only
+                            differences.
+            min_visibility: Minimum MediaPipe visibility across the
+                            primary-angle joints (shoulder/elbow/wrist) on this
+                            frame, or ``None`` to disable the gate. When below
+                            :data:`config.LIVE_VISIBILITY_GATE` the pose is
+                            present but unreliable, so its (jittering) angle is
+                            **not** fed to the segmenter — preventing the phantom
+                            reps seen on the live feed. The rep count and held
+                            score/feedback carry over unchanged.
 
         Returns:
             A :class:`LiveFrameResult` with the per-frame and (held) per-rep
-            fields.
+            fields; ``gated`` is ``True`` when the frame was dropped by the gate.
         """
+        if min_visibility is not None and min_visibility < LIVE_VISIBILITY_GATE:
+            return LiveFrameResult(
+                counter=self._segmenter.rep_count,
+                primary_angle=features.primary_angle,
+                rep_quality=self.last_form_score,
+                feedback=self.last_feedback,
+                rep_closed=False,
+                gated=True,
+            )
+
         event = self._segmenter.update_angle(
             features.primary_angle, timestamp, features=features
         )
@@ -119,7 +146,16 @@ class LiveSession:
             rep_quality=self.last_form_score,
             feedback=self.last_feedback,
             rep_closed=event is not None,
+            gated=False,
         )
+
+    def debug_snapshot(self) -> dict[str, float | bool | int | None]:
+        """The streaming segmenter's latest internals, for opt-in live tracing.
+
+        Delegates to :meth:`StreamingRepSegmenter.debug_snapshot`; behaviour-
+        neutral telemetry consumed by :class:`core.live_trace.LiveTracer`.
+        """
+        return self._segmenter.debug_snapshot()
 
     # -- internals -----------------------------------------------------------
 

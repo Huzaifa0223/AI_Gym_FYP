@@ -50,6 +50,7 @@ from core.equipment_pipeline import (
 from core.form_scorer import FormScore, FormScorer
 from core.frame_buffer import LatestFrameBuffer
 from core.live_session import LiveSession
+from core.live_trace import LiveTracer
 from core.object_detector import (
     EquipmentDetector,
     StubDetector,
@@ -263,6 +264,10 @@ def _to_rep_result(event: RepEvent, score: FormScore) -> RepResult:
 # TestClient context manager exits promptly during pytest runs.
 
 YOLO_WEIGHTS_PATH = Path("models/yolov8n.pt")
+# Fine-tuned gym-equipment weights (training/finetune_equipment_yolo.py). When
+# present, these take precedence over the stock COCO weights above and the
+# detector is given the gym-class allowlist (config.EQUIPMENT_CLASSES).
+EQUIPMENT_WEIGHTS_PATH = Path("models/equipment_yolov8n.pt")
 CNN_LSTM_WEIGHTS_PATH = Path("data/models/cnn_lstm_form_scorer.pt")
 EQUIPMENT_TASK_SHUTDOWN_TIMEOUT_S = 2.0
 
@@ -280,16 +285,31 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # so both paths stay reachable.
     app.state.live_sessions = {}
 
-    # -- Equipment detector (real if weights present, stub otherwise) -------
-    if YOLO_WEIGHTS_PATH.exists():
+    # -- Equipment detector: fine-tuned gym model if present, else stock COCO,
+    # else stub --------------------------------------------------------------
+    if EQUIPMENT_WEIGHTS_PATH.exists():
+        app.state.equipment_detector = EquipmentDetector(
+            Yolov8NanoDetector(weights_path=EQUIPMENT_WEIGHTS_PATH),
+            allowed_classes=app_config.EQUIPMENT_CLASSES,
+        )
+        logger.info("Equipment detector: fine-tuned gym model %s (classes=%s)",
+                    EQUIPMENT_WEIGHTS_PATH, app_config.EQUIPMENT_CLASSES)
+    elif YOLO_WEIGHTS_PATH.exists():
+        # Stock COCO weights — framework only. COCO has no gym classes, so this
+        # mostly emits person/bottle/chair. Train models/equipment_yolov8n.pt
+        # (training/finetune_equipment_yolo.py) to enable real gym detection.
         app.state.equipment_detector = EquipmentDetector(
             Yolov8NanoDetector(weights_path=YOLO_WEIGHTS_PATH),
         )
+        logger.warning(
+            "Equipment detector: STOCK COCO weights at %s (no gym classes). "
+            "Train models/equipment_yolov8n.pt to enable gym detection.",
+            YOLO_WEIGHTS_PATH,
+        )
     else:
         logger.warning(
-            "YOLOv8 weights not found at %s — running with StubDetector "
-            "(no detections). Run `python -m scripts.fetch_yolo_weights`.",
-            YOLO_WEIGHTS_PATH,
+            "No YOLOv8 weights found — running with StubDetector (no "
+            "detections). Run `python -m scripts.fetch_yolo_weights`.",
         )
         app.state.equipment_detector = EquipmentDetector(StubDetector())
 
@@ -329,6 +349,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 "using NullFormQualityScorer", exc,
             )
     app.state.threshold_provider = ThresholdProvider()
+
+    # -- Opt-in live per-frame trace (off unless AI_GYM_LIVE_TRACE is set) ----
+    # Writes one JSONL line per /api/live-frame frame so a real camera run can be
+    # analysed offline (raw/smoothed angle, fps, joint visibility, gate decision,
+    # latency). Disabled by default — zero overhead on demo/production runs.
+    app.state.live_tracer = LiveTracer.from_env()
 
     try:
         yield
@@ -695,6 +721,13 @@ def _get_live_session(session_id: str, exercise_type: str, age_group: str) -> Li
     return session
 
 
+# MediaPipe landmark ids for the primary angle (shoulder->elbow->wrist). All
+# three supported live exercises define their *primary* angle on these joints
+# (see core.video_processor), and the primary angle is what the streaming
+# segmenter counts on — so the live visibility gate keys on their visibility.
+_PRIMARY_ANGLE_JOINTS = (12, 14, 16)
+
+
 @app.post("/api/live-frame", response_model=LiveFrameResponse)
 async def live_frame(request: ExerciseRequest):
     """Score a single live-camera frame with the 3-pillar streaming pipeline.
@@ -752,6 +785,15 @@ async def live_frame(request: ExerciseRequest):
 
         if not results.pose_landmarks:
             latency_ms = (time.time() - start_time) * 1000
+            if app.state.live_tracer.enabled:
+                app.state.live_tracer.record({
+                    "session_id": session_id,
+                    "exercise_type": exercise_type,
+                    "age_group": age_group,
+                    "no_pose": True,
+                    "counter": session.rep_count,
+                    "latency_ms": latency_ms,
+                })
             return LiveFrameResponse(
                 success=False,
                 counter=session.rep_count,         # hold the count across no-pose frames
@@ -764,15 +806,42 @@ async def live_frame(request: ExerciseRequest):
                 timestamp=datetime.now().isoformat(),
             )
 
+        pose_landmarks = results.pose_landmarks.landmark
         landmarks_data = [
             {"x": lm.x, "y": lm.y, "z": lm.z, "visibility": lm.visibility}
-            for lm in results.pose_landmarks.landmark
+            for lm in pose_landmarks
         ]
 
-        features = extract_features(exercise_type, results.pose_landmarks.landmark)
-        frame_result = session.process_features(features, time.monotonic())
+        # Visibility of the primary-angle joints drives the live quality gate:
+        # a present-but-poorly-tracked pose yields a garbage angle that the
+        # segmenter would otherwise count as phantom reps.
+        primary_vis = [pose_landmarks[i].visibility for i in _PRIMARY_ANGLE_JOINTS]
+        min_vis = float(min(primary_vis))
+        mean_vis = float(sum(primary_vis) / len(primary_vis))
+
+        features = extract_features(exercise_type, pose_landmarks)
+        frame_result = session.process_features(
+            features, time.monotonic(), min_visibility=min_vis
+        )
 
         latency_ms = (time.time() - start_time) * 1000
+        if app.state.live_tracer.enabled:
+            app.state.live_tracer.record({
+                "session_id": session_id,
+                "exercise_type": exercise_type,
+                "age_group": age_group,
+                "raw_primary_angle": features.primary_angle,
+                "secondary_angle": features.secondary_angle,
+                "tertiary_angle": features.tertiary_angle,
+                "min_visibility": min_vis,
+                "mean_visibility": mean_vis,
+                "gated": frame_result.gated,
+                "counter": frame_result.counter,
+                "rep_closed": frame_result.rep_closed,
+                "rep_quality": frame_result.rep_quality,
+                "latency_ms": latency_ms,
+                **{f"seg_{k}": v for k, v in session.debug_snapshot().items()},
+            })
         return LiveFrameResponse(
             success=True,
             counter=frame_result.counter,

@@ -93,11 +93,13 @@ class EquipmentDetection:
     """One YOLOv8-nano equipment detection (1 Hz cadence — see spec §4).
 
     Attributes:
-        label:              Equipment class — ``'dumbbell'`` | ``'kettlebell'``
-                            | ``'mat'`` | ``'bench'``. The label set is
-                            documented in spec §3 and is not validated at
-                            runtime here (the YOLO model's class table is the
-                            source of truth).
+        label:              Equipment class from the fine-tuned gym model:
+                            ``'barbell'`` | ``'bench'`` | ``'dumbbell'`` |
+                            ``'parallel bars'`` | ``'pullup bar'`` |
+                            ``'resistance band'`` (see ``config.EQUIPMENT_CLASSES``).
+                            Not validated at runtime — the YOLO model's class
+                            table is the source of truth. With stock COCO weights
+                            (no fine-tune) the labels are COCO classes instead.
         confidence:         YOLOv8 confidence score in ``[0, 1]``.
         bbox_xyxy:          ``(x1, y1, x2, y2)`` pixel coordinates.
         frame_id_detected:  Frame index in which the detection was made.

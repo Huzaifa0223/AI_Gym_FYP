@@ -158,3 +158,27 @@ REP_SEGMENTER_CONFIGS: dict[str, RepSegmenterConfig] = {
     'bent_over_row': RepSegmenterConfig(),
     'push_up':       RepSegmenterConfig(),
 }
+
+# Live-only pose-quality gate — NOT part of the frozen RepSegmenterConfig above.
+# A live frame is counted only when the *primary-angle* joints
+# (shoulder->elbow->wrist) are tracked with at least this MediaPipe visibility.
+# Below it the pose is present but unreliable, so feeding its (jittering) angle to
+# the streaming segmenter manufactures phantom reps — the over-counting reported on
+# the live feed. Gating is structural (drop bad frames), distinct from tuning the
+# prominence/refractory/smoothing constants. This threshold is a CONSERVATIVE
+# default (only rejects clearly-lost tracking); validate the exact value against a
+# real live trace (see core.live_trace) rather than guessing-and-freezing it.
+LIVE_VISIBILITY_GATE: float = 0.5
+
+# ---------------------------------------------------------------------------
+# Equipment detector (YOLOv8) — fine-tuned gym classes
+# ---------------------------------------------------------------------------
+# Classes emitted by the fine-tuned gym-equipment YOLOv8 model (trained via
+# training/finetune_equipment_yolo.py on the gym-equipment dataset). Used as the
+# EquipmentDetector allowlist so GET /api/equipment forwards only gym gear. These
+# strings must match the trained model's class table (the dataset data.yaml
+# `names:`); re-sync them if you retrain on a dataset with different classes.
+EQUIPMENT_CLASSES: tuple[str, ...] = (
+    "barbell", "bench", "dumbbell", "parallel bars", "pullup bar",
+    "resistance band",
+)

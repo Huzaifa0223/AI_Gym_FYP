@@ -232,6 +232,12 @@ class StreamingRepSegmenter:
         self._cur_start_ts: float | None = None
         self._cur_traj: list[float] = []
         self._cur_feats: list[FrameFeatures] = []
+        # Last-update telemetry (read by debug_snapshot; no effect on counting).
+        self._last_smoothed = float("nan")
+        self._last_observed_fps = float("nan")
+        self._last_window_frames = 0
+        self._last_amp = float("nan")
+        self._last_prominence = float("nan")
 
     def update_angle(
         self,
@@ -269,6 +275,13 @@ class StreamingRepSegmenter:
             amp = 0.0  # cold start -> prominence == floor
         prominence = _prominence(amp, self._cfg)
 
+        # Stash this frame's computed internals for opt-in live tracing.
+        self._last_observed_fps = observed_fps
+        self._last_window_frames = window_frames
+        self._last_smoothed = smoothed
+        self._last_amp = amp
+        self._last_prominence = prominence
+
         # Per-rep accumulation.
         if self._cur_start_ts is None:
             self._cur_start_ts = timestamp
@@ -298,6 +311,32 @@ class StreamingRepSegmenter:
             self._cur_feats = [features] if features is not None else []
             return event
         return None
+
+    def debug_snapshot(self) -> dict[str, float | bool | int | None]:
+        """Read-only view of the latest update's internals (for live tracing).
+
+        Behaviour-neutral telemetry: the values the online detector computed on
+        the most recent :meth:`update_angle` call, so a trace can show *why* a
+        rep did or did not close (e.g. a near-zero ``window_frames`` reveals the
+        smoothing collapsing at low fps). Non-finite sentinels (``±inf`` peak /
+        trough before they are set, ``nan`` before the first frame) are mapped to
+        ``None`` so the snapshot is strict-JSON-serialisable. Not part of the
+        rep-counting contract.
+        """
+        def _finite(value: float) -> float | None:
+            return float(value) if np.isfinite(value) else None
+
+        return {
+            "smoothed": _finite(self._last_smoothed),
+            "observed_fps": _finite(self._last_observed_fps),
+            "window_frames": int(self._last_window_frames),
+            "amplitude": _finite(self._last_amp),
+            "prominence": _finite(self._last_prominence),
+            "peak_ref": _finite(self._peak_ref),
+            "trough": _finite(self._trough),
+            "descended": bool(self._descended),
+            "rep_count": int(self._rep_count),
+        }
 
     # -- internals -----------------------------------------------------------
 
